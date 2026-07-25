@@ -9,6 +9,7 @@ from config import Config
 
 _client = MongoClient(Config.MONGO_URI)
 db = _client[Config.DB_NAME]
+print("Connected Database:", db.name)
 
 # Collections (created lazily by MongoDB on first insert)
 users_col = db["users"]

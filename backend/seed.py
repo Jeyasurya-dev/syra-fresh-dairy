@@ -157,6 +157,9 @@ def run():
         ))
         print("Seeded salary structure for the sample delivery boy.")
 
+print("Admins count:", admins_col.count_documents({}))
+print("Admin email count:", admins_col.count_documents({"email": "admin@syrafresh.com"}))
+
 
 if __name__ == "__main__":
     run()
