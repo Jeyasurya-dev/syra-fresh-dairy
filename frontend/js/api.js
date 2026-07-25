@@ -3,7 +3,7 @@
  * Thin wrapper around fetch() that talks to the Flask backend, attaches the
  * auth token automatically, and normalizes error handling.
  */
-const API_BASE_URL = window.SYRA_API_BASE || 'http://localhost:5000/api';
+const API_BASE_URL = window.SYRA_API_BASE || 'https://syra-fresh-backend.onrender.com/api';
 
 const Api = {
   token() {

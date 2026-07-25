@@ -3,7 +3,7 @@
  * Handles auth checks, nav, toasts, and API calls for the delivery portal.
  */
 
-const DELIVERY_API = "http://localhost:5000/api/delivery";
+const DELIVERY_API = "https://syra-fresh-backend.onrender.com/api/delivery";
 
 /* ───── Theme ─────
  * BUG FIX: dark mode used to only be applied by settings.html itself (it

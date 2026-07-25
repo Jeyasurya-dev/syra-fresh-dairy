@@ -41,7 +41,7 @@ function getApiToken() {
   return localStorage.getItem('syra_admin_token') || localStorage.getItem('syra_hm_token') || localStorage.getItem('delivery_token');
 }
 function getApiBase() {
-  return window.SYRA_API_BASE || 'http://localhost:5000/api';
+  return window.SYRA_API_BASE || 'https://syra-fresh-backend.onrender.com/api';
 }
 
 let loadedSlipPath = null;

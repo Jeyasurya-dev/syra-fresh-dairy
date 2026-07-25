@@ -61,7 +61,7 @@ function starString(rating) { const full = Math.round(rating); return '★'.repe
 function resolveImage(p) {
   if (!p) return 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=700&q=80';
   if (p.startsWith('http')) return p;
-  return `${(window.SYRA_API_BASE || 'http://localhost:5000/api').replace('/api','')}${p}`;
+  return `${(window.SYRA_API_BASE || 'https://syra-fresh-backend.onrender.com/api').replace('/api','')}${p}`;
 }
 
 const slug = new URLSearchParams(window.location.search).get('slug');

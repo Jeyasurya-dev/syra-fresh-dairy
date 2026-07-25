@@ -4,7 +4,7 @@
  * from the customer session (different localStorage keys), so a person can
  * be logged into the storefront and the admin panel in the same browser.
  */
-const ADMIN_API_BASE = window.SYRA_API_BASE || 'http://localhost:5000/api';
+const ADMIN_API_BASE = window.SYRA_API_BASE || 'https://syra-fresh-backend.onrender.com/api';
 
 const AdminApi = {
   token() {

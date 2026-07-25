@@ -140,7 +140,7 @@ if (typeof resolveImage === 'undefined') {
   window.resolveImage = function (path) {
     if (!path) return 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400&q=80';
     if (path.startsWith('http')) return path;
-    const base = window.SYRA_API_BASE || 'http://localhost:5000/api';
+    const base = window.SYRA_API_BASE || 'https://syra-fresh-backend.onrender.com/api';
     return `${base.replace('/api', '')}${path}`;
   };
 }

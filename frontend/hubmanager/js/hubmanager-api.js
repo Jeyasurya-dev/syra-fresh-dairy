@@ -4,7 +4,7 @@
  * completely separate from the Admin/customer sessions (different
  * localStorage keys), so all three can be logged in on the same browser.
  */
-const HM_API_BASE = window.SYRA_API_BASE || 'http://localhost:5000/api';
+const HM_API_BASE = window.SYRA_API_BASE || 'https://syra-fresh-backend.onrender.com/api';
 
 const HubManagerApi = {
   token() {
