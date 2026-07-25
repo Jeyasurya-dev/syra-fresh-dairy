@@ -25,7 +25,7 @@ class Config:
     JWT_ADMIN_TOKEN_EXPIRES = timedelta(hours=12)
 
     # CORS
-    CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5500,http://127.0.0.1:5500").split(",")
+    CORS_ORIGINS = os.getenv("CORS_ORIGINS", "https://syra-fresh-dairy.vercel.app").split(",")
 
     # Razorpay (Test Mode)
     RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "rzp_test_XXXXXXXXXXXX")
