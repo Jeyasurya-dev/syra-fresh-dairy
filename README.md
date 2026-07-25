@@ -141,7 +141,7 @@ before the other scripts load:
 
 | Role | Email | Password | Scope |
 |---|---|---|---|
-| Super Admin | admin@syrafresh.com | Admin@12345 | Everything |
+| Super Admin | admin@example.com | xxxxxxxxxx | Everything |
 | Hub Manager | hubmanager@syrafresh.com | HubManager@123 | Tenkasi hub |
 | Delivery Boy | delivery@syrafresh.com | Delivery@123 | Tenkasi hub |
 
