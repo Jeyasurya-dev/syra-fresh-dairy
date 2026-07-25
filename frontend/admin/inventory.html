@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventory — SYRA Admin</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+  <aside id="admin-sidebar"></aside>
+  <div class="admin-content">
+    <header id="admin-topbar"></header>
+    <main class="admin-main">
+
+      <div class="stat-grid" id="inv-stats">
+        <div class="skeleton" style="height:90px"></div>
+        <div class="skeleton" style="height:90px"></div>
+        <div class="skeleton" style="height:90px"></div>
+        <div class="skeleton" style="height:90px"></div>
+      </div>
+
+      <div class="admin-toolbar">
+        <div class="search-wrap">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="inv-search" placeholder="Search products...">
+        </div>
+        <select id="stock-filter">
+          <option value="">All Stock Levels</option>
+          <option value="low">Low Stock (≤5)</option>
+          <option value="out">Out of Stock</option>
+        </select>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th></th><th>Product</th><th>Category</th><th>Current Stock</th><th>Update Stock</th></tr></thead>
+          <tbody id="inventory-body"><tr><td colspan="5"><div class="skeleton" style="height:20px"></div></td></tr></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination"></div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/admin-api.js"></script>
+<script src="js/admin.js"></script>
+<script>
+let allInventoryProducts = [];
+let currentPage = 1;
+
+function inventoryRowHTML(p) {
+  const img = (p.images && p.images[0]) ? resolveAdminImage(p.images[0]) : 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=100&q=80';
+  const badge = p.stock <= 0 ? statusBadgeHTML('Cancelled') : p.stock <= 5 ? statusBadgeHTML('Shipped') : statusBadgeHTML('Active');
+  const label = p.stock <= 0 ? ' Out of stock' : p.stock <= 5 ? ' Low stock' : ' In stock';
+  return `
+    <tr>
+      <td><img class="cell-img" src="${img}" alt="${p.name}"></td>
+      <td><strong>${p.name}</strong><br><span style="font-size:11px; color:var(--color-ink-soft)">${p.unit || ''}</span></td>
+      <td style="text-transform:capitalize">${(p.category || '').replace('-', ' ')}</td>
+      <td>${badge}<span style="font-size:11px; color:var(--color-ink-soft); margin-left:6px">${label} · ${p.stock} units</span></td>
+      <td>
+        <div style="display:flex; gap:8px; align-items:center">
+          <input type="number" min="0" value="${p.stock}" data-id="${p.id}" class="stock-input" style="width:90px; padding:6px 10px; border-radius:8px; border:1.5px solid var(--color-border); background:var(--color-surface); color:var(--color-ink)">
+          <button class="btn btn-sm btn-primary" onclick="saveStock('${p.id}')">Update</button>
+        </div>
+      </td>
+    </tr>`;
+}
+
+function applyInventoryFilters() {
+  const term = document.getElementById('inv-search').value.trim().toLowerCase();
+  const filter = document.getElementById('stock-filter').value;
+  let filtered = allInventoryProducts;
+  if (term) filtered = filtered.filter((p) => p.name.toLowerCase().includes(term));
+  if (filter === 'low') filtered = filtered.filter((p) => p.stock > 0 && p.stock <= 5);
+  if (filter === 'out') filtered = filtered.filter((p) => p.stock <= 0);
+  document.getElementById('inventory-body').innerHTML = filtered.length
+    ? filtered.map(inventoryRowHTML).join('')
+    : `<tr><td colspan="5"><div class="empty-state">No matching products.</div></td></tr>`;
+}
+
+async function loadInventory(page = 1) {
+  currentPage = page;
+  const body = document.getElementById('inventory-body');
+  body.innerHTML = `<tr><td colspan="5"><div class="skeleton" style="height:20px"></div></td></tr>`;
+  try {
+    const data = await AdminApi.get(`/admin/products?page=${page}&page_size=20`);
+    allInventoryProducts = data.products;
+    applyInventoryFilters();
+    renderAdminPagination('pagination', data.pagination, loadInventory);
+
+    const low = allInventoryProducts.filter((p) => p.stock > 0 && p.stock <= 5).length;
+    const out = allInventoryProducts.filter((p) => p.stock <= 0).length;
+    document.getElementById('inv-stats').innerHTML = `
+      <div class="stat-card"><div class="stat-icon">📦</div><div><strong>${data.pagination.total}</strong><span>Total Products (this page: ${allInventoryProducts.length})</span></div></div>
+      <div class="stat-card"><div class="stat-icon warn">⚠️</div><div><strong>${low}</strong><span>Low Stock (this page)</span></div></div>
+      <div class="stat-card"><div class="stat-icon danger">🚫</div><div><strong>${out}</strong><span>Out of Stock (this page)</span></div></div>
+      <div class="stat-card"><div class="stat-icon accent">✅</div><div><strong>${allInventoryProducts.length - low - out}</strong><span>Healthy Stock (this page)</span></div></div>`;
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="5"><div class="empty-state">${e.message}</div></td></tr>`;
+  }
+}
+
+async function saveStock(id) {
+  const input = document.querySelector(`.stock-input[data-id="${id}"]`);
+  const stock = parseInt(input.value, 10);
+  if (isNaN(stock) || stock < 0) { adminToast('Enter a valid stock number'); return; }
+  try {
+    await AdminApi.put(`/admin/products/${id}/stock`, { stock });
+    adminToast('Stock updated');
+    loadInventory(currentPage);
+  } catch (e) { adminToast(e.message); }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!initAdminShell('inventory')) return;
+  loadInventory(1);
+  document.getElementById('inv-search').addEventListener('input', debounce(applyInventoryFilters, 200));
+  document.getElementById('stock-filter').addEventListener('change', applyInventoryFilters);
+});
+</script>
+</body>
+</html>

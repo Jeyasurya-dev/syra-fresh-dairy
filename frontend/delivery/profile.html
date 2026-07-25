@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - SYRA Fresh</title>
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/theme.css">
+    <style>
+        .container { max-width: 600px; margin: 20px auto; padding: 20px; }
+        .back-link { display: inline-flex; align-items: center; gap: 5px; color: var(--color-forest); text-decoration: none; margin-bottom: 20px; }
+        .profile-card { background: var(--color-surface); padding: 30px; border-radius: 12px; box-shadow: var(--shadow-sm); }
+        .profile-header { text-align: center; margin-bottom: 30px; }
+        .profile-photo { width: 100px; height: 100px; border-radius: 50%; background: var(--color-border); margin: 0 auto 15px; }
+        .profile-name { font-size: 22px; font-weight: 600; color: var(--color-ink); margin-bottom: 5px; }
+        .profile-status { font-size: 14px; color: var(--color-ink-soft); }
+        .info-section { margin-bottom: 25px; }
+        .section-title { font-size: 14px; font-weight: 600; color: var(--color-ink-soft); text-transform: uppercase; margin-bottom: 12px; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .info-item { display: flex; flex-direction: column; }
+        .info-label { font-size: 12px; color: var(--color-ink-soft); margin-bottom: 4px; }
+        .info-value { font-weight: 600; color: var(--color-ink); }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin: 20px 0; }
+        .stat { text-align: center; padding: 15px; background: var(--color-bg); border-radius: 8px; }
+        .stat-value { font-size: 20px; font-weight: bold; color: var(--color-forest); }
+        .stat-label { font-size: 12px; color: var(--color-ink-soft); margin-top: 5px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-size: 14px; color: var(--color-ink); font-weight: 500; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface-alt); color: var(--color-ink); }
+        .btn-group { display: flex; gap: 10px; margin-top: 20px; }
+        .btn { flex: 1; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+        .btn-primary { background: var(--color-forest); color: white; }
+        .btn-primary:hover { background: var(--color-forest-dark); }
+        .btn-secondary { background: transparent; color: var(--color-forest); border: 2px solid var(--color-forest); }
+        .btn-secondary:hover { background: var(--color-forest); color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="dashboard.html" class="back-link">← Back to Dashboard</a>
+        
+        <div class="profile-card">
+            <div class="profile-header">
+                <div class="profile-photo" id="profilePhoto"></div>
+                <div class="profile-name" id="profileName">Loading...</div>
+                <div class="profile-status" id="profileStatus">-</div>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat">
+                    <div class="stat-value" id="totalDeliveries">0</div>
+                    <div class="stat-label">Total Deliveries</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="rating">5.0</div>
+                    <div class="stat-label">Rating</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="earnings">₹0</div>
+                    <div class="stat-label">Total Earnings</div>
+                </div>
+            </div>
+            
+            <div class="info-section">
+                <div class="section-title">Personal Information</div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Email</span>
+                        <span class="info-value" id="profileEmail">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Mobile</span>
+                        <span class="info-value" id="profileMobile">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">City</span>
+                        <span class="info-value" id="profileCity">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Delivery Area</span>
+                        <span class="info-value" id="profileArea">-</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="info-section">
+                <div class="section-title">Vehicle Information</div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Vehicle Type</span>
+                        <span class="info-value" id="profileVehicleType">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Vehicle Number</span>
+                        <span class="info-value" id="profileVehicleNumber">-</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="info-section">
+                <div class="section-title">Edit Profile</div>
+                <form id="editForm">
+                    <div class="form-group">
+                        <label for="editAlternatePhone">Alternate Mobile</label>
+                        <input type="tel" id="editAlternatePhone" name="alternate_mobile" placeholder="10-digit number">
+                    </div>
+                    <div class="form-group">
+                        <label for="editAvailableTime">Available Time</label>
+                        <select id="editAvailableTime" name="available_time">
+                            <option value="">Select time</option>
+                            <option value="morning">Morning</option>
+                            <option value="afternoon">Afternoon</option>
+                            <option value="evening">Evening</option>
+                            <option value="full_day">Full Day</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="editUPI">UPI ID</label>
+                        <input type="text" id="editUPI" name="upi_id" placeholder="UPI ID">
+                    </div>
+                    <div class="btn-group">
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                        <button type="button" class="btn btn-secondary" onclick="window.location.href='dashboard.html'">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script src="delivery-shared.js"></script>
+    <script>
+        const API_URL = "http://localhost:5000/api/delivery";
+        
+        async function loadProfile() {
+            const token = localStorage.getItem("delivery_token");
+            
+            try {
+                const response = await fetch(`${API_URL}/auth/me`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderProfile(data.delivery_boy);
+                }
+            } catch (error) {
+                console.error("Error:", error);
+            }
+        }
+        
+        function renderProfile(profile) {
+            document.getElementById("profileName").textContent = profile.name;
+            document.getElementById("profileStatus").textContent = `Status: ${profile.status}`;
+            document.getElementById("profileEmail").textContent = profile.email;
+            document.getElementById("profileMobile").textContent = profile.mobile;
+            document.getElementById("profileCity").textContent = profile.city;
+            document.getElementById("profileArea").textContent = profile.delivery_area;
+            document.getElementById("profileVehicleType").textContent = profile.vehicle_type;
+            document.getElementById("profileVehicleNumber").textContent = profile.vehicle_number;
+            document.getElementById("totalDeliveries").textContent = profile.total_deliveries;
+            document.getElementById("rating").textContent = profile.rating.toFixed(1);
+            document.getElementById("earnings").textContent = `₹${profile.total_earnings.toFixed(2)}`;
+            
+            document.getElementById("editAlternatePhone").value = profile.alternate_mobile || '';
+            document.getElementById("editAvailableTime").value = profile.available_time || '';
+            document.getElementById("editUPI").value = profile.upi_id || '';
+        }
+        
+        document.getElementById("editForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            
+            const token = localStorage.getItem("delivery_token");
+            const formData = new FormData(document.getElementById("editForm"));
+            
+            const data = Object.fromEntries(formData);
+            
+            try {
+                const response = await fetch(`${API_URL}/auth/me`, {
+                    method: "PUT",
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert("Profile updated successfully");
+                    loadProfile();
+                } else {
+                    alert("Failed to update profile");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                alert("Error updating profile");
+            }
+        });
+        
+        renderDeliveryNav('profile.html');
+        loadProfile();
+    </script>
+</body>
+</html>

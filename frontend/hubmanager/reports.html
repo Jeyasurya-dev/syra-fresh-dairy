@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reports — SYRA Hub Manager</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="../admin/css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+  <aside id="admin-sidebar"></aside>
+  <div class="admin-content">
+    <header id="admin-topbar"></header>
+    <main class="admin-main">
+
+      <div class="stat-grid" style="grid-template-columns: 1fr 1fr;">
+        <div class="card">
+          <div class="section-title-row"><h2>Revenue by Day (last 30 days)</h2></div>
+          <div class="bar-chart" id="daily-chart"></div>
+        </div>
+        <div class="card">
+          <div class="section-title-row"><h2>Orders by Status</h2></div>
+          <div id="status-list"></div>
+          <div class="section-title-row" style="margin-top: var(--space-4)"><h2>Top Delivery Boys</h2></div>
+          <div id="top-boys-list"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: var(--space-4)">
+        <div class="section-title-row"><h2>Daily Detail</h2></div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Date</th><th>Orders</th><th>Revenue</th></tr></thead>
+            <tbody id="daily-body"><tr><td colspan="3"><div class="skeleton" style="height:20px"></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/hubmanager-api.js"></script>
+<script src="js/hubmanager.js"></script>
+<script>
+async function loadReports() {
+  try {
+    const data = await HubManagerApi.get('/hub-manager/reports?days=30');
+
+    renderChart(data.daily);
+
+    const dailyBody = document.getElementById('daily-body');
+    dailyBody.innerHTML = data.daily.length
+      ? data.daily.map((d) => `<tr><td>${d.date}</td><td>${d.orders}</td><td>₹${d.revenue.toFixed(2)}</td></tr>`).join('')
+      : `<tr><td colspan="3"><div class="empty-state">No orders in this period yet.</div></td></tr>`;
+
+    document.getElementById('status-list').innerHTML = data.by_status.length
+      ? data.by_status.map((s) => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--color-border)">${hmStatusBadgeHTML(s.status)}<strong>${s.count}</strong></div>`).join('')
+      : '<p class="form-help">No data yet.</p>';
+
+    document.getElementById('top-boys-list').innerHTML = data.top_delivery_boys.length
+      ? data.top_delivery_boys.map((t, i) => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--color-border)"><span>${i + 1}. ${hmEscapeHTML(t.name || 'Unknown')}</span><strong>${t.deliveries} deliveries</strong></div>`).join('')
+      : '<p class="form-help">No completed deliveries yet.</p>';
+
+    document.querySelectorAll('.admin-main .card').forEach((c) => c.classList.add('fade-in'));
+  } catch (e) {
+    hmToast(e.message);
+  }
+}
+
+function renderChart(daily) {
+  const el = document.getElementById('daily-chart');
+  if (!daily.length) { el.innerHTML = '<div class="empty-state">No data to chart yet.</div>'; return; }
+  const max = Math.max(...daily.map((d) => d.revenue), 1);
+  const shown = daily.slice(-14); // keep the chart readable
+  el.innerHTML = shown.map((d) => {
+    const height = Math.max(4, Math.round((d.revenue / max) * 160));
+    const label = new Date(d.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    return `<div class="bar-col"><div class="bar" style="height:${height}px" data-value="₹${d.revenue.toFixed(0)}"></div><span class="bar-label">${label}</span></div>`;
+  }).join('');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (initHubManagerShell('reports')) loadReports();
+});
+</script>
+</body>
+</html>

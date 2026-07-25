@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delivery Boys Management — SYRA Admin</title>
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    <link rel="stylesheet" href="../css/theme.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <style>
+        .filter-section { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .filter-btn { padding: 8px 16px; border: 1px solid var(--color-border); background: var(--color-bg); cursor: pointer; border-radius: 4px; }
+        .filter-btn.active { background: var(--color-forest); color: white; border-color: var(--color-forest); }
+        .action-buttons { display: flex; gap: 10px; }
+        .action-btn { padding: 6px 12px; font-size: 12px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-approve { background: #28a745; color: white; }
+        .btn-reject { background: #dc3545; color: white; }
+        .btn-suspend { background: #ffc107; color: #000; }
+        .btn-view { background: var(--color-forest); color: white; }
+        .status-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-approved { background: #d4edda; color: #155724; }
+        .status-rejected { background: #f8d7da; color: #721c24; }
+        .status-suspended { background: #e2e3e5; color: #383d41; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+        .modal.show { display: flex; }
+        .modal-content { background: var(--color-bg); padding: 30px; border-radius: 8px; max-width: 500px; width: 90%; }
+        .modal-close { float: right; font-size: 24px; cursor: pointer; }
+        .modal-form { margin-top: 20px; }
+        .modal-form input, .modal-form textarea { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid var(--color-border); border-radius: 4px; }
+        .modal-actions { margin-top: 20px; display: flex; gap: 10px; }
+        .modal-actions button { flex: 1; padding: 10px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-confirm { background: var(--color-forest); color: white; }
+        .btn-cancel { background: var(--color-border); }
+    </style>
+</head>
+<body>
+
+<div class="admin-layout">
+    <aside id="admin-sidebar"></aside>
+    <div class="admin-content">
+        <header id="admin-topbar"></header>
+        <main class="admin-main">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h1>🚚 Delivery Boy Management</h1>
+                <button onclick="showAddDeliveryBoyModal()" class="btn btn-primary">Add Delivery Boy</button>
+            </div>
+            
+            <div class="filter-section">
+                <button class="filter-btn active" onclick="filterByStatus(null)">All</button>
+                <button class="filter-btn" onclick="filterByStatus('pending_verification')">Pending</button>
+                <button class="filter-btn" onclick="filterByStatus('approved')">Approved</button>
+                <button class="filter-btn" onclick="filterByStatus('rejected')">Rejected</button>
+                <button class="filter-btn" onclick="filterByStatus('suspended')">Suspended</button>
+            </div>
+            
+            <div class="card">
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Mobile</th>
+                                <th>Hub</th>
+                                <th>Area</th>
+                                <th>Vehicle</th>
+                                <th>Status</th>
+                                <th>Deliveries</th>
+                                <th>Rating</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="deliveryBoysBody">
+                            <tr><td colspan="9">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;" id="pagination"></div>
+            
+        </main>
+    </div>
+</div>
+
+<!-- View Details Modal -->
+<div id="viewModal" class="modal">
+    <div class="modal-content">
+        <span class="modal-close" onclick="closeViewModal()">&times;</span>
+        <h2 id="modalTitle">Delivery Boy Details</h2>
+        <div id="modalBody" style="margin-top: 20px;"></div>
+    </div>
+</div>
+
+<!-- Approve Modal -->
+<div id="approveModal" class="modal">
+    <div class="modal-content">
+        <span class="modal-close" onclick="closeApproveModal()">&times;</span>
+        <h2>Approve Delivery Boy</h2>
+        <p id="approveName" style="margin-top: 10px;"></p>
+        <p style="color: var(--secondary-text-color); font-size: 14px;">Click confirm to approve this registration.</p>
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="closeApproveModal()">Cancel</button>
+            <button class="btn-confirm" id="confirmApproveBtn">Approve</button>
+        </div>
+    </div>
+</div>
+
+<!-- Reject Modal -->
+<div id="rejectModal" class="modal">
+    <div class="modal-content">
+        <span class="modal-close" onclick="closeRejectModal()">&times;</span>
+        <h2>Reject Registration</h2>
+        <div class="modal-form">
+            <label>Reason for rejection:</label>
+            <textarea id="rejectReason" placeholder="Enter reason for rejection" rows="4"></textarea>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="closeRejectModal()">Cancel</button>
+            <button class="btn-confirm" id="confirmRejectBtn">Reject</button>
+        </div>
+    </div>
+</div>
+
+<!-- Transfer Hub Modal -->
+<div id="transferModal" class="modal">
+    <div class="modal-content">
+        <span class="modal-close" onclick="closeTransferModal()">&times;</span>
+        <h2>Transfer to Another Hub</h2>
+        <p id="transferName" style="margin-top: 10px;"></p>
+        <div class="modal-form">
+            <label>New Hub</label>
+            <select id="transferHubSelect" style="width:100%; padding:10px; margin:10px 0; border:1px solid var(--color-border); border-radius:4px;"></select>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="closeTransferModal()">Cancel</button>
+            <button class="btn-confirm" id="confirmTransferBtn">Transfer</button>
+        </div>
+    </div>
+</div>
+
+<script src="js/admin-api.js"></script>
+<script src="js/admin.js"></script>
+<script>
+    let currentStatus = null;
+    let currentPage = 1;
+    let currentDeliveryBoyId = null;
+    
+    async function loadDeliveryBoys(page = 1, status = null) {
+        try {
+            let url = `/admin/delivery-boys?page=${page}&limit=10`;
+            if (status) url += `&status=${status}`;
+            
+            const data = await AdminApi.get(url);
+            
+            renderTable(data.delivery_boys);
+            renderPagination(data.pagination, status);
+            currentPage = page;
+            currentStatus = status;
+        } catch (error) {
+            console.error("Error loading delivery boys:", error);
+            document.getElementById("deliveryBoysBody").innerHTML = '<tr><td colspan="9">Error loading data</td></tr>';
+        }
+    }
+    
+    function renderTable(deliveryBoys) {
+        const tbody = document.getElementById("deliveryBoysBody");
+        
+        if (!deliveryBoys || deliveryBoys.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9">No delivery boys found</td></tr>';
+            return;
+        }
+        
+        let html = '';
+        deliveryBoys.forEach(db => {
+            const statusClass = `status-${db.status.replace(/_/g, '-')}`;
+            html += `
+                <tr>
+                    <td>${db.name}</td>
+                    <td>${db.mobile}</td>
+                    <td>${db.hub_name || '<span style="opacity:.6">Unassigned</span>'}</td>
+                    <td>${db.delivery_area}</td>
+                    <td>${db.vehicle_number}</td>
+                    <td><span class="status-badge ${statusClass}">${db.status.replace(/_/g, ' ').toUpperCase()}</span></td>
+                    <td>${db.total_deliveries}</td>
+                    <td>⭐ ${db.rating.toFixed(1)}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="action-btn btn-view" onclick="viewDetails('${db.id}')">View</button>
+                            <button class="action-btn btn-view" onclick="showTransferModal('${db.id}', '${db.name}', '${db.hub_id || ''}')">Transfer</button>
+                            ${db.status === 'pending_verification' ? `
+                                <button class="action-btn btn-approve" onclick="showApproveModal('${db.id}', '${db.name}')">Approve</button>
+                                <button class="action-btn btn-reject" onclick="showRejectModal('${db.id}')">Reject</button>
+                            ` : ''}
+                            ${db.status === 'approved' ? `
+                                <button class="action-btn btn-suspend" onclick="suspendDeliveryBoy('${db.id}')">Suspend</button>
+                            ` : ''}
+                            ${db.status === 'suspended' ? `
+                                <button class="action-btn btn-approve" onclick="activateDeliveryBoy('${db.id}')">Activate</button>
+                            ` : ''}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        tbody.innerHTML = html;
+        tbody.classList.add('fade-in');
+    }
+    
+    function renderPagination(pagination, status) {
+        const container = document.getElementById("pagination");
+        let html = '';
+
+        // BUG FIX: when status was null (the "All" filter), the template
+        // literal below used to embed the literal text 'null' into the
+        // onclick handler. loadDeliveryBoys() then received the *string*
+        // "null", which is truthy, so it appended "&status=null" to the API
+        // call - silently returning zero delivery boys on every page beyond
+        // page 1 while on the "All" filter. Passing status through
+        // JSON.stringify (and using it unquoted) round-trips null correctly.
+        const statusArg = status ? `'${status}'` : 'null';
+        for (let i = 1; i <= pagination.pages; i++) {
+            html += `<button onclick="loadDeliveryBoys(${i}, ${statusArg})" style="${i === currentPage ? 'background: var(--color-forest); color: white;' : ''} padding: 8px 12px; border: 1px solid var(--color-border); cursor: pointer;">${i}</button>`;
+        }
+        
+        container.innerHTML = html;
+    }
+    
+    function filterByStatus(status) {
+        document.querySelectorAll(".filter-btn").forEach(btn => btn.classList.remove("active"));
+        event.target.classList.add("active");
+        loadDeliveryBoys(1, status);
+    }
+    
+    async function viewDetails(deliveryBoyId) {
+        try {
+            const data = await AdminApi.get(`/admin/delivery-boys/${deliveryBoyId}`);
+            const db = data.delivery_boy;
+            const stats = data.stats;
+            
+            let html = `
+                <div style="margin-bottom: 15px;">
+                    <p><strong>Name:</strong> ${db.name}</p>
+                    <p><strong>Email:</strong> ${db.email}</p>
+                    <p><strong>Mobile:</strong> ${db.mobile}</p>
+                    <p><strong>UPI ID:</strong> ${db.upi_id}</p>
+                    <p><strong>Status:</strong> <span class="status-badge status-${db.status.replace(/_/g, '-')}">${db.status}</span></p>
+                </div>
+                
+                <hr style="margin: 15px 0;">
+                
+                <div style="margin-bottom: 15px;">
+                    <h4>Documents</h4>
+                    <p><strong>Aadhar Number:</strong> ${db.aadhar_number}</p>
+                    <p><strong>License Number:</strong> ${db.license_number || '—'}</p>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+                        ${db.aadhar_front_url ? `<a class="action-btn btn-view" style="text-decoration:none; display:inline-block;" href="${resolveAdminImage(db.aadhar_front_url)}" target="_blank" rel="noopener">📄 View Aadhaar Front</a>` : ''}
+                        ${db.aadhar_back_url ? `<a class="action-btn btn-view" style="text-decoration:none; display:inline-block;" href="${resolveAdminImage(db.aadhar_back_url)}" target="_blank" rel="noopener">📄 View Aadhaar Back</a>` : ''}
+                        ${db.license_url ? `<a class="action-btn btn-view" style="text-decoration:none; display:inline-block;" href="${resolveAdminImage(db.license_url)}" target="_blank" rel="noopener">🪪 View Driving License</a>` : ''}
+                    </div>
+                </div>
+                
+                <hr style="margin: 15px 0;">
+                
+                <div>
+                    <h4>Statistics</h4>
+                    <p><strong>Total Assignments:</strong> ${stats.total_assignments}</p>
+                    <p><strong>Completed:</strong> ${stats.completed_assignments}</p>
+                    <p><strong>Success Rate:</strong> ${stats.success_rate}</p>
+                </div>
+            `;
+            
+            document.getElementById("modalBody").innerHTML = html;
+            document.getElementById("viewModal").classList.add("show");
+        } catch (error) {
+            alert("Error loading details");
+        }
+    }
+    
+    function closeViewModal() {
+        document.getElementById("viewModal").classList.remove("show");
+    }
+    
+    function showApproveModal(deliveryBoyId, name) {
+        currentDeliveryBoyId = deliveryBoyId;
+        document.getElementById("approveName").textContent = `Approve ${name}'s registration?`;
+        document.getElementById("approveModal").classList.add("show");
+    }
+    
+    function closeApproveModal() {
+        document.getElementById("approveModal").classList.remove("show");
+    }
+    
+    function showRejectModal(deliveryBoyId) {
+        currentDeliveryBoyId = deliveryBoyId;
+        document.getElementById("rejectReason").value = "";
+        document.getElementById("rejectModal").classList.add("show");
+    }
+    
+    function closeRejectModal() {
+        document.getElementById("rejectModal").classList.remove("show");
+    }
+    
+    async function approveDeliveryBoy() {
+        try {
+            await AdminApi.post(`/admin/delivery-boys/${currentDeliveryBoyId}/approve`, {});
+            alert("Delivery boy approved successfully!");
+            closeApproveModal();
+            loadDeliveryBoys(currentPage, currentStatus);
+        } catch (error) {
+            alert("Error approving delivery boy");
+        }
+    }
+    
+    async function rejectDeliveryBoy() {
+        const reason = document.getElementById("rejectReason").value || "Registration rejected";
+        try {
+            await AdminApi.post(`/admin/delivery-boys/${currentDeliveryBoyId}/reject`, { reason });
+            alert("Delivery boy registration rejected!");
+            closeRejectModal();
+            loadDeliveryBoys(currentPage, currentStatus);
+        } catch (error) {
+            alert("Error rejecting delivery boy");
+        }
+    }
+    
+    async function suspendDeliveryBoy(deliveryBoyId) {
+        if (confirm("Suspend this delivery boy?")) {
+            try {
+                const reason = prompt("Reason for suspension:");
+                await AdminApi.post(`/admin/delivery-boys/${deliveryBoyId}/suspend`, { reason });
+                alert("Delivery boy suspended!");
+                loadDeliveryBoys(currentPage, currentStatus);
+            } catch (error) {
+                alert("Error suspending delivery boy");
+            }
+        }
+    }
+    
+    async function activateDeliveryBoy(deliveryBoyId) {
+        try {
+            await AdminApi.post(`/admin/delivery-boys/${deliveryBoyId}/activate`, {});
+            alert("Delivery boy activated!");
+            loadDeliveryBoys(currentPage, currentStatus);
+        } catch (error) {
+            alert("Error activating delivery boy");
+        }
+    }
+    
+    function showAddDeliveryBoyModal() {
+        alert("Add delivery boy feature coming soon! Users can register via the delivery boy portal.");
+    }
+
+    // ---------- Phase 2: Transfer to another hub ----------
+    let hubsForTransfer = [];
+    let currentTransferBoyId = null;
+
+    async function loadHubsForTransfer() {
+        try {
+            const data = await AdminApi.get('/admin/hubs');
+            hubsForTransfer = data.hubs || [];
+        } catch (e) { console.error(e); }
+    }
+
+    function showTransferModal(deliveryBoyId, name, currentHubId) {
+        currentTransferBoyId = deliveryBoyId;
+        document.getElementById("transferName").textContent = `Transfer ${name} to:`;
+        const select = document.getElementById("transferHubSelect");
+        select.innerHTML = hubsForTransfer.map((h) =>
+            `<option value="${h.id}" ${h.id === currentHubId ? 'selected' : ''}>${h.district_name} — ${h.name}</option>`
+        ).join('');
+        document.getElementById("transferModal").classList.add("show");
+    }
+
+    function closeTransferModal() {
+        document.getElementById("transferModal").classList.remove("show");
+    }
+
+    document.getElementById("confirmTransferBtn").addEventListener("click", async () => {
+        const hub_id = document.getElementById("transferHubSelect").value;
+        try {
+            await AdminApi.post(`/admin/delivery-boys/${currentTransferBoyId}/transfer`, { hub_id });
+            adminToast("Delivery boy transferred");
+            closeTransferModal();
+            loadDeliveryBoys(currentPage, currentStatus);
+        } catch (error) {
+            adminToast(error.message || "Error transferring delivery boy");
+        }
+    });
+    
+    document.getElementById("confirmApproveBtn").addEventListener("click", approveDeliveryBoy);
+    document.getElementById("confirmRejectBtn").addEventListener("click", rejectDeliveryBoy);
+    
+    // Load initial data
+    if (initAdminShell('delivery-boys')) {
+        loadHubsForTransfer();
+        loadDeliveryBoys();
+    }
+</script>
+
+</body>
+</html>

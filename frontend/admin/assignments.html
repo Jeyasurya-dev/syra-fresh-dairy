@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Delivery Assignments — SYRA Admin</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="css/admin.css">
+<style>
+.filters { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; align-items:center; }
+.filter-select { padding:8px 12px; border:1px solid var(--color-border); border-radius:6px; background:var(--color-bg); color:var(--color-ink); font-size:14px; }
+.search-input { padding:8px 14px; border:1px solid var(--color-border); border-radius:6px; background:var(--color-bg); color:var(--color-ink); font-size:14px; width:220px; }
+.badge { display:inline-block; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; }
+.badge-assigned { background:#e7f3ff; color:#0066cc; }
+.badge-picked { background:#fff3cd; color:#856404; }
+.badge-out { background:#ffd9a0; color:#7a4100; }
+.badge-delivered { background:#d4edda; color:#155724; }
+.badge-failed { background:#f8d7da; color:#721c24; }
+.action-btn { padding:6px 12px; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:600; }
+.btn-view { background:var(--color-forest); color:white; }
+.btn-reassign { background:#fd7e14; color:white; }
+.modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.5); z-index:1000; align-items:center; justify-content:center; }
+.modal.show { display:flex; }
+.modal-content { background:var(--color-bg); padding:30px; border-radius:12px; max-width:560px; width:90%; max-height:80vh; overflow-y:auto; }
+.modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+.modal-header h2 { font-size:18px; font-weight:700; }
+.modal-close { font-size:22px; cursor:pointer; background:none; border:none; color:var(--color-ink); }
+.detail-row { display:flex; gap:12px; margin-bottom:14px; }
+.detail-item { flex:1; }
+.detail-label { font-size:11px; text-transform:uppercase; color:var(--color-ink-soft); margin-bottom:4px; letter-spacing:.5px; }
+.detail-value { font-size:14px; font-weight:600; color:var(--color-ink); }
+.assign-form label { display:block; font-size:14px; font-weight:500; margin-bottom:6px; color:var(--color-ink); }
+.assign-form select { width:100%; padding:10px 14px; border:1px solid var(--color-border); border-radius:8px; background:var(--color-bg); color:var(--color-ink); font-size:14px; margin-bottom:16px; }
+.btn-primary-full { width:100%; padding:12px; background:var(--color-forest); color:white; border:none; border-radius:8px; font-size:15px; font-weight:600; cursor:pointer; }
+.btn-primary-full:hover { opacity:.9; }
+.summary-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:16px; margin-bottom:24px; }
+.summary-card { background:var(--color-bg); padding:16px; border-radius:8px; border-left:4px solid var(--color-forest); }
+.summary-card h4 { font-size:12px; text-transform:uppercase; color:var(--color-ink-soft); margin-bottom:8px; }
+.summary-card .val { font-size:26px; font-weight:700; color:var(--color-ink); }
+</style>
+</head>
+<body>
+<div class="admin-layout">
+  <aside id="admin-sidebar"></aside>
+  <div class="admin-content">
+    <header id="admin-topbar"></header>
+    <main class="admin-main">
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+        <h1>📦 Delivery Assignments</h1>
+        <button class="btn btn-primary" onclick="openAssignModal(null)">Assign Order</button>
+      </div>
+
+      <div class="summary-cards" id="summaryCards">
+        <div class="summary-card"><h4>Total</h4><div class="val" id="statTotal">—</div></div>
+        <div class="summary-card" style="border-left-color:#007bff"><h4>Assigned</h4><div class="val" id="statAssigned">—</div></div>
+        <div class="summary-card" style="border-left-color:#fd7e14"><h4>Out For Delivery</h4><div class="val" id="statOut">—</div></div>
+        <div class="summary-card" style="border-left-color:#28a745"><h4>Delivered</h4><div class="val" id="statDelivered">—</div></div>
+        <div class="summary-card" style="border-left-color:#dc3545"><h4>Failed</h4><div class="val" id="statFailed">—</div></div>
+      </div>
+
+      <div class="card">
+        <div class="filters">
+          <input type="text" class="search-input" id="searchInput" placeholder="Search order / delivery boy...">
+          <select class="filter-select" id="statusFilter" onchange="loadAssignments(1)">
+            <option value="">All Statuses</option>
+            <option value="assigned">Assigned</option>
+            <option value="picked_up">Picked Up</option>
+            <option value="out_for_delivery">Out For Delivery</option>
+            <option value="delivered">Delivered</option>
+            <option value="failed">Failed</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Order #</th>
+                <th>Delivery Boy</th>
+                <th>Assigned At</th>
+                <th>Status</th>
+                <th>COD</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="assignmentsBody">
+              <tr><td colspan="6" style="text-align:center;padding:30px;color:var(--color-ink-soft)">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;" id="pagination"></div>
+
+    </main>
+  </div>
+</div>
+
+<!-- View Modal -->
+<div id="viewModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Assignment Details</h2>
+      <button class="modal-close" onclick="closeModal('viewModal')">✕</button>
+    </div>
+    <div id="viewModalBody"></div>
+  </div>
+</div>
+
+<!-- Assign Modal -->
+<div id="assignModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="assignModalTitle">Assign Order to Delivery Boy</h2>
+      <button class="modal-close" onclick="closeModal('assignModal')">✕</button>
+    </div>
+    <div class="assign-form">
+      <label>Select Order</label>
+      <select id="orderSelect">
+        <option value="">Loading orders...</option>
+      </select>
+      <label>Select Delivery Boy</label>
+      <select id="deliveryBoySelect">
+        <option value="">Loading delivery boys...</option>
+      </select>
+      <button class="btn-primary-full" id="assignBtn" onclick="submitAssignment()">Assign</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/admin-api.js"></script>
+<script src="js/admin.js"></script>
+<script>
+let currentPage = 1;
+let debounceTimer;
+
+const badgeMap = {
+  assigned: "badge-assigned",
+  picked_up: "badge-picked",
+  out_for_delivery: "badge-out",
+  delivered: "badge-delivered",
+  failed: "badge-failed"
+};
+
+function statusLabel(s) {
+  return s ? s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "—";
+}
+
+async function loadAssignments(page = 1) {
+  currentPage = page;
+  const status = document.getElementById("statusFilter").value;
+  const search = document.getElementById("searchInput").value.trim();
+
+  let url = `/admin/delivery-boys/assignments?page=${page}&limit=15`;
+  if (status) url += `&status=${status}`;
+  if (search) url += `&search=${encodeURIComponent(search)}`;
+
+  try {
+    const data = await AdminApi.get(url);
+    renderTable(data.assignments || []);
+    renderPagination(data.pagination || {});
+    loadSummary();
+  } catch (e) {
+    document.getElementById("assignmentsBody").innerHTML =
+      `<tr><td colspan="6" style="text-align:center;padding:30px;color:#dc3545">Error loading assignments</td></tr>`;
+  }
+}
+
+function renderTable(rows) {
+  const tbody = document.getElementById("assignmentsBody");
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--color-ink-soft)">No assignments found</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td><strong>${r.order_number || "—"}</strong></td>
+      <td>${r.delivery_boy_name || "—"}<br><small style="color:var(--color-ink-soft)">${r.delivery_boy_phone || ""}</small></td>
+      <td>${r.assigned_at ? new Date(r.assigned_at).toLocaleString("en-IN", {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}) : "—"}</td>
+      <td><span class="badge ${badgeMap[r.status] || ''}">${statusLabel(r.status)}</span></td>
+      <td>${r.cod_collected ? "₹" + parseFloat(r.cod_collected).toFixed(2) : "—"}</td>
+      <td style="display:flex;gap:6px;">
+        <button class="action-btn btn-view" onclick="viewAssignment('${r.assignment_id}')">View</button>
+      </td>
+    </tr>
+  `).join("");
+}
+
+function renderPagination(p) {
+  const container = document.getElementById("pagination");
+  if (!p.pages || p.pages <= 1) { container.innerHTML = ""; return; }
+  container.innerHTML = Array.from({length: p.pages}, (_, i) => i + 1).map(i =>
+    `<button onclick="loadAssignments(${i})" style="padding:6px 12px;border:1px solid var(--color-border);cursor:pointer;border-radius:4px;background:${i===currentPage?'var(--color-forest)':'var(--color-bg)'};color:${i===currentPage?'white':'var(--color-ink)'};">${i}</button>`
+  ).join("");
+}
+
+async function loadSummary() {
+  try {
+    const statuses = ["assigned", "out_for_delivery", "delivered", "failed"];
+    const counts = await Promise.all(
+      statuses.map(s => AdminApi.get(`/admin/delivery-boys/assignments?page=1&limit=1&status=${s}`).then(d => d.pagination?.total || 0))
+    );
+    const all = await AdminApi.get(`/admin/delivery-boys/assignments?page=1&limit=1`).then(d => d.pagination?.total || 0);
+    document.getElementById("statTotal").textContent = all;
+    document.getElementById("statAssigned").textContent = counts[0];
+    document.getElementById("statOut").textContent = counts[1];
+    document.getElementById("statDelivered").textContent = counts[2];
+    document.getElementById("statFailed").textContent = counts[3];
+  } catch (e) {}
+}
+
+async function viewAssignment(assignmentId) {
+  // Show a note; in production you would fetch from API
+  const modal = document.getElementById("viewModal");
+  document.getElementById("viewModalBody").innerHTML = `
+    <p style="color:var(--color-ink-soft);font-size:14px">Assignment ID: <strong>${assignmentId}</strong></p>
+    <p style="color:var(--color-ink-soft);font-size:14px;margin-top:10px">Full details visible in the Delivery Boy portal and order detail page.</p>
+    <a href="orders.html" class="btn btn-primary btn-sm" style="display:inline-block;margin-top:16px;">View Orders</a>
+  `;
+  modal.classList.add("show");
+}
+
+async function openAssignModal(orderId) {
+  const modal = document.getElementById("assignModal");
+  modal.classList.add("show");
+
+  // Load unassigned orders
+  try {
+    const ordersData = await AdminApi.get("/admin/orders?page=1&limit=50&status=Confirmed");
+    const orders = ordersData.orders || [];
+    const orderSel = document.getElementById("orderSelect");
+    if (orders.length === 0) {
+      orderSel.innerHTML = `<option value="">No unassigned orders found</option>`;
+    } else {
+      orderSel.innerHTML = `<option value="">Select an order</option>` +
+        orders.filter(o => !o.delivery_boy_id).map(o =>
+          `<option value="${o.id}">#${o.order_number} — ₹${o.totals?.total?.toFixed(2) || 0}</option>`
+        ).join("");
+    }
+    if (orderId) orderSel.value = orderId;
+  } catch (e) {
+    document.getElementById("orderSelect").innerHTML = `<option value="">Error loading orders</option>`;
+  }
+
+  // Load approved delivery boys
+  try {
+    const dbData = await AdminApi.get("/admin/delivery-boys?status=approved&limit=100");
+    const boys = dbData.delivery_boys || [];
+    document.getElementById("deliveryBoySelect").innerHTML =
+      `<option value="">Select delivery boy</option>` +
+      boys.map(b => `<option value="${b.id}">${b.name} — ${b.delivery_area}</option>`).join("");
+  } catch (e) {
+    document.getElementById("deliveryBoySelect").innerHTML = `<option value="">Error loading delivery boys</option>`;
+  }
+}
+
+async function submitAssignment() {
+  const orderId = document.getElementById("orderSelect").value;
+  const deliveryBoyId = document.getElementById("deliveryBoySelect").value;
+  const btn = document.getElementById("assignBtn");
+
+  if (!orderId) { alert("Please select an order"); return; }
+  if (!deliveryBoyId) { alert("Please select a delivery boy"); return; }
+
+  btn.disabled = true;
+  btn.textContent = "Assigning...";
+
+  try {
+    const data = await AdminApi.post(`/admin/delivery-boys/${deliveryBoyId}/assign-order`, { order_id: orderId });
+    if (data.success) {
+      alert("Order assigned successfully!");
+      closeModal("assignModal");
+      loadAssignments(currentPage);
+    } else {
+      alert(data.message || "Assignment failed");
+    }
+  } catch (e) {
+    alert("Error assigning order");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Assign";
+  }
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove("show");
+}
+
+document.getElementById("searchInput").addEventListener("input", () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => loadAssignments(1), 400);
+});
+
+if (initAdminShell('assignments')) loadAssignments();
+</script>
+</body>
+</html>

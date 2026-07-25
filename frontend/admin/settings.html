@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings — SYRA Admin</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+  <aside id="admin-sidebar"></aside>
+  <div class="admin-content">
+    <header id="admin-topbar"></header>
+    <main class="admin-main">
+
+      <div class="stat-grid" style="grid-template-columns: 1fr 1fr;">
+
+        <div class="card">
+          <div class="section-title-row"><h2>Admin Profile</h2></div>
+          <div class="form-group"><label>Name</label><input id="st-name"></div>
+          <div class="form-group"><label>Email</label><input id="st-email" disabled style="opacity:0.6"></div>
+          <button class="btn btn-primary mt-3" onclick="saveProfile()">Save Profile</button>
+        </div>
+
+        <div class="card">
+          <div class="section-title-row"><h2>Store Preferences</h2></div>
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--color-border)">
+            <div><strong>Dark Mode</strong><p class="form-help">Applies to this admin panel</p></div>
+            <label class="switch"><input type="checkbox" id="st-dark" onchange="toggleAdminTheme()"><span class="slider"></span></label>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--color-border)">
+            <div><strong>Low Stock Alerts</strong><p class="form-help">Highlight products with 5 or fewer units left</p></div>
+            <label class="switch"><input type="checkbox" id="st-lowstock" checked onchange="savePrefs()"><span class="slider"></span></label>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--color-border)">
+            <div><strong>New Order Notifications</strong><p class="form-help">Show a toast when viewing the dashboard</p></div>
+            <label class="switch"><input type="checkbox" id="st-notify" checked onchange="savePrefs()"><span class="slider"></span></label>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0">
+            <div><strong>Auto-approve Reviews</strong><p class="form-help">Newly submitted reviews skip moderation</p></div>
+            <label class="switch"><input type="checkbox" id="st-autoapprove" onchange="savePrefs()"><span class="slider"></span></label>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title-row"><h2>Change Password</h2></div>
+          <div class="form-group"><label>Current Password</label><input type="password" id="st-current-pw"></div>
+          <div class="form-group"><label>New Password</label><input type="password" id="st-new-pw"></div>
+          <div class="form-group"><label>Confirm New Password</label><input type="password" id="st-confirm-pw"></div>
+          <div id="pw-error" class="form-error"></div>
+          <button class="btn btn-outline mt-3" onclick="changePassword()">Update Password</button>
+        </div>
+
+        <div class="card">
+          <div class="section-title-row"><h2>Danger Zone</h2></div>
+          <p class="form-help">These actions only affect this browser session.</p>
+          <button class="btn btn-danger mt-3" onclick="AdminAuth.logout()">Log Out of Admin Panel</button>
+        </div>
+
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/admin-api.js"></script>
+<script src="js/admin.js"></script>
+<script>
+const PREFS_KEY = 'syra_admin_prefs';
+
+function loadPrefs() {
+  try { return JSON.parse(localStorage.getItem(PREFS_KEY)) || {}; } catch (e) { return {}; }
+}
+function savePrefs() {
+  const prefs = {
+    lowStockAlerts: document.getElementById('st-lowstock').checked,
+    newOrderNotifications: document.getElementById('st-notify').checked,
+    autoApproveReviews: document.getElementById('st-autoapprove').checked,
+  };
+  localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+  adminToast('Preference saved');
+}
+
+async function saveProfile() {
+  const name = document.getElementById('st-name').value.trim();
+  if (!name) { adminToast('Name is required'); return; }
+  try {
+    const data = await AdminApi.put('/admin/me', { name });
+    localStorage.setItem('syra_admin', JSON.stringify(data.admin));
+    adminToast('Profile updated');
+    initAdminShell('settings');
+  } catch (e) { adminToast(e.message); }
+}
+
+async function changePassword() {
+  const errEl = document.getElementById('pw-error');
+  errEl.textContent = '';
+  const current_password = document.getElementById('st-current-pw').value;
+  const new_password = document.getElementById('st-new-pw').value;
+  const confirm_password = document.getElementById('st-confirm-pw').value;
+  try {
+    await AdminApi.post('/admin/change-password', { current_password, new_password, confirm_password });
+    adminToast('Password updated successfully');
+    document.getElementById('st-current-pw').value = '';
+    document.getElementById('st-new-pw').value = '';
+    document.getElementById('st-confirm-pw').value = '';
+  } catch (e) { errEl.textContent = e.message; }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!initAdminShell('settings')) return;
+  const admin = AdminAuth.currentAdmin() || {};
+  document.getElementById('st-name').value = admin.name || '';
+  document.getElementById('st-email').value = admin.email || '';
+  document.getElementById('st-dark').checked = document.documentElement.getAttribute('data-theme') === 'dark';
+
+  const prefs = loadPrefs();
+  document.getElementById('st-lowstock').checked = prefs.lowStockAlerts !== false;
+  document.getElementById('st-notify').checked = prefs.newOrderNotifications !== false;
+  document.getElementById('st-autoapprove').checked = !!prefs.autoApproveReviews;
+});
+</script>
+</body>
+</html>

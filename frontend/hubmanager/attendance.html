@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attendance — SYRA Hub Manager</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="../admin/css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+  <aside id="admin-sidebar"></aside>
+  <div class="admin-content">
+    <header id="admin-topbar"></header>
+    <main class="admin-main">
+
+      <div class="admin-toolbar">
+        <input type="date" id="attendance-date" onchange="loadAttendance()">
+        <div style="flex:1"></div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Delivery Boy</th><th>Status</th><th>Marked At</th><th>Mark Attendance</th></tr></thead>
+          <tbody id="attendance-body"><tr><td colspan="4"><div class="skeleton" style="height:20px"></div></td></tr></tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/hubmanager-api.js"></script>
+<script src="js/hubmanager.js"></script>
+<script>
+const STATUS_OPTIONS = ['present', 'absent', 'half_day', 'leave'];
+
+function attendanceRowHTML(a) {
+  return `
+    <tr>
+      <td><strong>${hmEscapeHTML(a.name)}</strong></td>
+      <td>${hmStatusBadgeHTML(a.status === 'not_marked' ? 'Not Marked' : a.status.replace('_', ' '))}</td>
+      <td>${hmFormatDateTime(a.marked_at)}</td>
+      <td>
+        <div class="row-actions">
+          ${STATUS_OPTIONS.map((s) => `<button class="btn btn-sm ${a.status === s ? 'btn-primary' : 'btn-outline'}" onclick="markAttendance('${a.person_id}', '${s}')">${s.replace('_', ' ')}</button>`).join('')}
+        </div>
+      </td>
+    </tr>`;
+}
+function todayStr() {
+  const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+
+async function loadAttendance() {
+  const dateInput = document.getElementById('attendance-date');
+  if (!dateInput.value) dateInput.value = todayStr();
+  const body = document.getElementById('attendance-body');
+  try {
+    const data = await HubManagerApi.get(`/hub-manager/attendance?date=${dateInput.value}`);
+    const rows = data.attendance || [];
+    body.innerHTML = rows.length ? rows.map(attendanceRowHTML).join('') : `<tr><td colspan="4"><div class="empty-state">No delivery boys assigned to your hub yet.</div></td></tr>`;
+    body.classList.add('fade-in');
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="4"><div class="empty-state">${e.message}</div></td></tr>`;
+  }
+}
+
+async function markAttendance(personId, status) {
+  const date = document.getElementById('attendance-date').value || todayStr();
+  try {
+    await HubManagerApi.post('/hub-manager/attendance/mark', { person_id: personId, status, date });
+    hmToast('Attendance updated');
+    loadAttendance();
+  } catch (e) {
+    hmToast(e.message);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (initHubManagerShell('attendance')) loadAttendance();
+});
+</script>
+</body>
+</html>

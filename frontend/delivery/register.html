@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delivery Boy Registration - SYRA Fresh</title>
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/theme.css">
+    <style>
+        .register-container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 40px;
+            background: var(--color-surface);
+            border-radius: 12px;
+            box-shadow: var(--shadow-md);
+        }
+        
+        .register-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .register-header h1 {
+            font-size: 28px;
+            color: var(--color-forest);
+            margin-bottom: 10px;
+        }
+        
+        .register-header p {
+            color: var(--color-ink-soft);
+            font-size: 14px;
+        }
+        
+        .form-section {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--color-border);
+        }
+        
+        .form-section h3 {
+            font-size: 16px;
+            color: var(--color-ink);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .form-row.full {
+            grid-template-columns: 1fr;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .form-group label {
+            margin-bottom: 8px;
+            color: var(--color-ink);
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 12px;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            background: var(--color-surface-alt);
+            color: var(--color-ink);
+            font-size: 14px;
+            font-family: inherit;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--color-forest);
+            box-shadow: 0 0 0 3px var(--color-leaf-light);
+        }
+        
+        .form-group.required label::after {
+            content: " *";
+            color: #dc3545;
+        }
+        
+        .error-message {
+            color: #dc3545;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .file-input-wrapper input[type="file"] {
+            display: none;
+        }
+        
+        .file-btn {
+            padding: 10px 15px;
+            background: var(--color-forest);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+        
+        .file-btn:hover {
+            background: var(--color-forest-dark);
+        }
+        
+        .file-name {
+            font-size: 12px;
+            color: var(--color-ink-soft);
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .checkbox-group label {
+            margin: 0;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .btn-register {
+            width: 100%;
+            padding: 14px;
+            background: var(--color-forest);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        
+        .btn-register:hover:not(:disabled) {
+            background: var(--color-forest-dark);
+        }
+        
+        .btn-register:disabled {
+            background: var(--color-border);
+            cursor: not-allowed;
+        }
+        
+        .message {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .register-container {
+                margin: 20px;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="register-container">
+        <div class="register-header">
+            <h1>🚚 Join SYRA Fresh</h1>
+            <p>Register as a Delivery Partner</p>
+        </div>
+        
+        <div id="message" class="message" style="display: none;"></div>
+        
+        <form id="registrationForm">
+            <!-- Personal Information -->
+            <div class="form-section">
+                <h3>👤 Personal Information</h3>
+                
+                <div class="form-row">
+                    <div class="form-group required">
+                        <label for="name">Full Name</label>
+                        <input type="text" id="name" name="name" placeholder="Enter your full name" required>
+                        <div class="error-message" id="nameError"></div>
+                    </div>
+                    <div class="form-group required">
+                        <label for="email">Email Address</label>
+                        <input type="email" id="email" name="email" placeholder="Enter your email" required>
+                        <div class="error-message" id="emailError"></div>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group required">
+                        <label for="mobile">Mobile Number (10-digit)</label>
+                        <input type="tel" id="mobile" name="mobile" placeholder="10-digit number" maxlength="10" required>
+                        <div class="error-message" id="mobileError"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="altMobile">Alternate Mobile (Optional)</label>
+                        <input type="tel" id="altMobile" name="alternate_mobile" placeholder="Alternate mobile" maxlength="10">
+                        <div class="error-message" id="altMobileError"></div>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group required">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" placeholder="Minimum 6 characters" required>
+                        <div class="error-message" id="passwordError"></div>
+                    </div>
+                    <div class="form-group required">
+                        <label for="confirmPassword">Confirm Password</label>
+                        <input type="password" id="confirmPassword" name="confirm_password" placeholder="Re-enter password" required>
+                        <div class="error-message" id="confirmPasswordError"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Hub Assignment (Phase 2) -->
+            <div class="form-section">
+                <h3>🏢 Hub Assignment</h3>
+                <p style="font-size: 13px; color: var(--secondary-text-color); margin-bottom: 12px;">
+                    Choose the district and hub you'll be delivering for. This determines which Hub Manager
+                    and which orders you'll be assigned.
+                </p>
+                <div class="form-row">
+                    <div class="form-group required">
+                        <label for="districtSelect">District</label>
+                        <select id="districtSelect" required>
+                            <option value="">Select District</option>
+                        </select>
+                        <div class="error-message" id="districtSelectError"></div>
+                    </div>
+                    <div class="form-group required">
+                        <label for="hub_id">Hub</label>
+                        <select id="hub_id" name="hub_id" required disabled>
+                            <option value="">Select District First</option>
+                        </select>
+                        <div class="error-message" id="hub_idError"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Address Information -->
+            <div class="form-section">
+                <h3>🏠 Address Information</h3>
+                
+                <div class="form-row full">
+                    <div class="form-group required">
+                        <label for="address">Street Address</label>
+                        <input type="text" id="address" name="address" placeholder="House No., Street" required>
+                        <div class="error-message" id="addressError"></div>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group required">
+                        <label for="city">City</label>
+                        <input type="text" id="city" name="city" placeholder="City" required>
+                        <div class="error-message" id="cityError"></div>
+                    </div>
+                    <div class="form-group required">
+                        <label for="district">District</label>
+                        <input type="text" id="district" name="district" placeholder="District" required>
+                        <div class="error-message" id="districtError"></div>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group required">
+                        <label for="state">State</label>
+                        <input type="text" id="state" name="state" placeholder="State" required>
+                        <div class="error-message" id="stateError"></div>
+                    </div>
+                    <div class="form-group required">
+                        <label for="pincode">Pincode (6-digit)</label>
+                        <input type="text" id="pincode" name="pincode" placeholder="6-digit pincode" maxlength="6" required>
+                        <div class="error-message" id="pincodeError"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Documents -->
+            <div class="form-section">
+                <h3>📄 Documents & Verification</h3>
+                
+                <div class="form-row">
+                    <div class="form-group required">
+                        <label for="aadhar">Aadhar Number (12-digit)</label>
+                        <input type="text" id="aadhar" name="aadhar_number" placeholder="12-digit Aadhar" maxlength="12" required>
+                        <div class="error-message" id="aadharError"></div>
+                    </div>
+                    <div class="form-group required">
+                        <label for="license">Driving License Number</label>
+                        <input type="text" id="license" name="license_number" placeholder="Driving license number">
+                        <div class="error-message" id="licenseError"></div>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group required">
+                        <label for="aadharFront">Aadhar Front Photo</label>
+                        <div class="file-input-wrapper">
+                            <input type="file" id="aadharFront" name="aadhar_front" accept="image/*" required>
+                            <button type="button" class="file-btn" onclick="document.getElementById('aadharFront').click()">Choose File</button>
+                            <span class="file-name" id="aadharFrontName">No file chosen</span>
+                        </div>
+                        <div class="error-message" id="aadharFrontError"></div>
+                    </div>
+                    <div class="form-group required">
+                        <label for="aadharBack">Aadhar Back Photo</label>
+                        <div class="file-input-wrapper">
+                            <input type="file" id="aadharBack" name="aadhar_back" accept="image/*" required>
+                            <button type="button" class="file-btn" onclick="document.getElementById('aadharBack').click()">Choose File</button>
+                            <span class="file-name" id="aadharBackName">No file chosen</span>
+                        </div>
+                        <div class="error-message" id="aadharBackError"></div>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="license">Driving License Photo</label>
+                        <div class="file-input-wrapper">
+                            <input type="file" id="licenseFile" name="license" accept="image/*">
+                            <button type="button" class="file-btn" onclick="document.getElementById('licenseFile').click()">Choose File</button>
+                            <span class="file-name" id="licenseFileName">No file chosen</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="profilePhoto">Profile Photo</label>
+                        <div class="file-input-wrapper">
+                            <input type="file" id="profilePhoto" name="profile_photo" accept="image/*">
+                            <button type="button" class="file-btn" onclick="document.getElementById('profilePhoto').click()">Choose File</button>
+                            <span class="file-name" id="profilePhotoName">No file chosen</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Vehicle Information -->
+            <div class="form-section">
+                <h3>🚗 Vehicle Information</h3>
+                
+                <div class="form-row">
+                    <div class="form-group required">
+                        <label for="vehicleType">Vehicle Type</label>
+                        <select id="vehicleType" name="vehicle_type" required>
+                            <option value="">Select vehicle type</option>
+                            <option value="bike">Bike</option>
+                            <option value="scooter">Scooter</option>
+                            <option value="car">Car</option>
+                            <option value="van">Van</option>
+                        </select>
+                        <div class="error-message" id="vehicleTypeError"></div>
+                    </div>
+                    <div class="form-group required">
+                        <label for="vehicleNumber">Vehicle Registration Number</label>
+                        <input type="text" id="vehicleNumber" name="vehicle_number" placeholder="e.g., MH12AB1234" required>
+                        <div class="error-message" id="vehicleNumberError"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Operational Details -->
+            <div class="form-section">
+                <h3>📍 Operational Details</h3>
+                
+                <div class="form-row">
+                    <div class="form-group required">
+                        <label for="deliveryArea">Delivery Area</label>
+                        <input type="text" id="deliveryArea" name="delivery_area" placeholder="e.g., Bangalore Central" required>
+                        <div class="error-message" id="deliveryAreaError"></div>
+                    </div>
+                    <div class="form-group required">
+                        <label for="availableTime">Available Time</label>
+                        <select id="availableTime" name="available_time" required>
+                            <option value="">Select availability</option>
+                            <option value="morning">Morning (6 AM - 12 PM)</option>
+                            <option value="afternoon">Afternoon (12 PM - 5 PM)</option>
+                            <option value="evening">Evening (5 PM - 11 PM)</option>
+                            <option value="full_day">Full Day (6 AM - 11 PM)</option>
+                        </select>
+                        <div class="error-message" id="availableTimeError"></div>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group required">
+                        <label for="emergencyContact">Emergency Contact Number</label>
+                        <input type="tel" id="emergencyContact" name="emergency_contact" placeholder="10-digit number" maxlength="10" required>
+                        <div class="error-message" id="emergencyContactError"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Agreement -->
+            <div class="form-section" style="border-bottom: none;">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="confirmation" name="confirmation" required>
+                    <label for="confirmation">I confirm that all information provided is true and correct</label>
+                </div>
+                <div class="error-message" id="confirmationError"></div>
+            </div>
+            
+            <button type="submit" class="btn-register" id="registerBtn">Register as Delivery Partner</button>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <p>Already registered? <a href="login.html" style="color: var(--color-forest); text-decoration: none;">Login here</a></p>
+            </div>
+        </form>
+    </div>
+    
+    <script>
+        const API_URL = "http://localhost:5000/api/delivery";
+        const PUBLIC_API_URL = "http://localhost:5000/api";
+
+        // Phase 2: District -> Hub cascading dropdowns
+        async function loadDistrictOptions() {
+            try {
+                const res = await fetch(`${PUBLIC_API_URL}/districts`);
+                const data = await res.json();
+                const select = document.getElementById("districtSelect");
+                (data.districts || []).forEach((d) => {
+                    const opt = document.createElement("option");
+                    opt.value = d.id;
+                    opt.textContent = d.name;
+                    select.appendChild(opt);
+                });
+            } catch (err) {
+                console.error("Could not load districts", err);
+            }
+        }
+
+        document.getElementById("districtSelect").addEventListener("change", async (e) => {
+            const hubSelect = document.getElementById("hub_id");
+            const districtId = e.target.value;
+            hubSelect.innerHTML = '<option value="">Loading hubs...</option>';
+            hubSelect.disabled = true;
+            if (!districtId) {
+                hubSelect.innerHTML = '<option value="">Select District First</option>';
+                return;
+            }
+            try {
+                const res = await fetch(`${PUBLIC_API_URL}/hubs?district_id=${districtId}`);
+                const data = await res.json();
+                hubSelect.innerHTML = '<option value="">Select Hub</option>';
+                (data.hubs || []).forEach((h) => {
+                    const opt = document.createElement("option");
+                    opt.value = h.id;
+                    opt.textContent = h.name;
+                    hubSelect.appendChild(opt);
+                });
+                hubSelect.disabled = false;
+            } catch (err) {
+                hubSelect.innerHTML = '<option value="">Could not load hubs</option>';
+            }
+        });
+
+        loadDistrictOptions();
+        
+        // File input handling
+        const fileInputs = [
+            { input: "aadharFront", name: "aadharFrontName" },
+            { input: "aadharBack", name: "aadharBackName" },
+            { input: "licenseFile", name: "licenseFileName" },
+            { input: "profilePhoto", name: "profilePhotoName" }
+        ];
+        
+        fileInputs.forEach(({ input, name }) => {
+            document.getElementById(input).addEventListener("change", (e) => {
+                document.getElementById(name).textContent = e.target.files[0]?.name || "No file chosen";
+            });
+        });
+        
+        document.getElementById("registrationForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            
+            const form = document.getElementById("registrationForm");
+            const formData = new FormData(form);
+            const messageDiv = document.getElementById("message");
+            const registerBtn = document.getElementById("registerBtn");
+            
+            // Clear previous errors
+            document.querySelectorAll(".error-message").forEach(el => el.textContent = "");
+            messageDiv.style.display = "none";
+            
+            // Validate confirmation
+            if (!document.getElementById("confirmation").checked) {
+                document.getElementById("confirmationError").textContent = "Please confirm the information";
+                return;
+            }
+            
+            registerBtn.disabled = true;
+            registerBtn.textContent = "Registering...";
+            
+            try {
+                const response = await fetch(`${API_URL}/auth/register`, {
+                    method: "POST",
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    messageDiv.className = "message success";
+                    messageDiv.textContent = "Registration successful! Please wait for admin verification. You will be notified via email.";
+                    messageDiv.style.display = "block";
+                    
+                    setTimeout(() => {
+                        window.location.href = "login.html";
+                    }, 2000);
+                } else if (data.errors) {
+                    Object.keys(data.errors).forEach(field => {
+                        const errorEl = document.getElementById(`${field}Error`);
+                        if (errorEl) {
+                            errorEl.textContent = data.errors[field];
+                        }
+                    });
+                } else {
+                    messageDiv.className = "message error";
+                    messageDiv.textContent = data.message || "Registration failed";
+                    messageDiv.style.display = "block";
+                }
+            } catch (error) {
+                console.error("Registration error:", error);
+                messageDiv.className = "message error";
+                messageDiv.textContent = "Network error. Please try again.";
+                messageDiv.style.display = "block";
+            } finally {
+                registerBtn.disabled = false;
+                registerBtn.textContent = "Register as Delivery Partner";
+            }
+        });
+    </script>
+</body>
+</html>

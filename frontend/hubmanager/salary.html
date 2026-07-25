@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Salary — SYRA Hub Manager</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="../admin/css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+  <aside id="admin-sidebar"></aside>
+  <div class="admin-content">
+    <header id="admin-topbar"></header>
+    <main class="admin-main">
+
+      <p class="form-help" style="margin-bottom: var(--space-3)">
+        Salary structure and slip generation are managed by the Super Admin.
+        This is a read-only view of your own salary history.
+      </p>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Slip #</th><th>Month</th><th>Gross</th><th>Deductions</th><th>Net Pay</th><th>Status</th><th></th></tr></thead>
+          <tbody id="salary-body"><tr><td colspan="7"><div class="skeleton" style="height:20px"></div></td></tr></tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/hubmanager-api.js"></script>
+<script src="js/hubmanager.js"></script>
+<script>
+function slipRowHTML(t) {
+  return `
+    <tr>
+      <td>${t.slip_number}</td>
+      <td>${t.month}</td>
+      <td>₹${t.gross_earnings.toFixed(2)}</td>
+      <td>₹${t.total_deductions.toFixed(2)}</td>
+      <td><strong>₹${t.net_pay.toFixed(2)}</strong></td>
+      <td>${hmStatusBadgeHTML(t.status === 'paid' ? 'Paid' : 'Pending')}</td>
+      <td>
+        <button class="btn btn-sm btn-outline" onclick="window.open('../admin/salary-slip.html?id=${t.id}', '_blank')">View Slip</button>
+        <button class="btn btn-sm btn-outline" onclick="downloadSlipPdf('${t.id}', '${t.slip_number}')">⬇️ PDF</button>
+      </td>
+    </tr>`;
+}
+
+async function loadSalary() {
+  const body = document.getElementById('salary-body');
+  try {
+    const data = await HubManagerApi.get('/hub-manager/salary');
+    const txns = data.transactions || [];
+    body.innerHTML = txns.length ? txns.map(slipRowHTML).join('') : `<tr><td colspan="7"><div class="empty-state">No salary slips generated for you yet.</div></td></tr>`;
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="7"><div class="empty-state">${e.message}</div></td></tr>`;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (initHubManagerShell('salary')) loadSalary();
+});
+
+async function downloadSlipPdf(id, slipNumber) {
+  try {
+    const res = await fetch(`${HM_API_BASE}/hub-manager/salary/${id}/pdf`, {
+      headers: { Authorization: `Bearer ${HubManagerApi.token()}` },
+    });
+    if (!res.ok) throw new Error('Could not generate the PDF');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `salary-slip-${slipNumber}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) { hmToast(e.message); }
+}
+</script>
+</body>
+</html>

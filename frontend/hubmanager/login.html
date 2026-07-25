@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hub Manager Login — SYRA Fresh</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="../admin/css/admin.css">
+<style>
+  body { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--space-4);
+    background: radial-gradient(circle at 20% 20%, rgba(45,106,79,0.9), var(--color-forest-dark) 60%); }
+  .login-card { background: var(--color-surface); border-radius: var(--radius-lg); padding: var(--space-6); width: 100%; max-width: 400px; box-shadow: var(--shadow-lg); }
+  .login-logo { text-align: center; font-family: var(--font-display); font-size: var(--fs-lg); color: var(--color-forest); margin-bottom: 6px; }
+  .login-sub { text-align: center; color: var(--color-ink-soft); font-size: var(--fs-sm); margin-bottom: var(--space-5); }
+  .demo-hint { background: var(--color-surface-alt); border: 1px dashed var(--color-border); border-radius: var(--radius-sm); padding: 10px 14px; font-size: var(--fs-xs); color: var(--color-ink-soft); margin-top: var(--space-4); }
+  .back-link { position: fixed; top: 20px; left: 20px; color: #fff; font-weight: 600; font-size: var(--fs-sm); }
+</style>
+</head>
+<body>
+
+<a href="/index.html" class="back-link">← Back to storefront</a>
+
+<div class="login-card">
+  <div class="login-logo">🏢 SYRA Hub Manager</div>
+  <p class="login-sub">Sign in to manage your hub's orders and delivery team</p>
+
+  <form id="hm-login-form">
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="hm-email" required autofocus>
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="hm-password" required>
+    </div>
+    <div id="hm-login-error" class="form-error"></div>
+    <button class="btn btn-primary" type="submit" style="width:100%" id="hm-login-btn">Sign In</button>
+  </form>
+
+  <div class="demo-hint">🔒 Hub Manager accounts are created by the Super Admin — there's no self-registration. Use the credentials created by <code>backend/seed.py</code> if you're testing locally.</div>
+</div>
+
+<script src="js/hubmanager-api.js"></script>
+<script>
+if (HubManagerAuth.isLoggedIn()) window.location.href = '/hubmanager/dashboard.html';
+document.documentElement.setAttribute('data-theme', localStorage.getItem('syra_theme') || 'light');
+
+document.getElementById('hm-login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('hm-login-error');
+  const btn = document.getElementById('hm-login-btn');
+  errEl.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Signing in...';
+  try {
+    await HubManagerAuth.login({ email: document.getElementById('hm-email').value.trim(), password: document.getElementById('hm-password').value });
+    window.location.href = '/hubmanager/dashboard.html';
+  } catch (err) {
+    errEl.textContent = err.message;
+    btn.disabled = false;
+    btn.textContent = 'Sign In';
+  }
+});
+</script>
+</body>
+</html>

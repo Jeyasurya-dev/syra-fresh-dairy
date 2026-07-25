@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Career Applications — SYRA Admin</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+  <aside id="admin-sidebar"></aside>
+  <div class="admin-content">
+    <header id="admin-topbar"></header>
+    <main class="admin-main">
+
+      <div class="admin-toolbar">
+        <input type="text" id="search-input" placeholder="🔍 Search by name, email, phone, or position..." oninput="debouncedSearch()" style="max-width:300px">
+        <select id="status-filter" onchange="loadApplications(1)" style="max-width:160px">
+          <option value="">All Statuses</option>
+          <option value="New">New</option>
+          <option value="Reviewing">Reviewing</option>
+          <option value="Shortlisted">Shortlisted</option>
+          <option value="Rejected">Rejected</option>
+          <option value="Hired">Hired</option>
+        </select>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Applicant</th><th>Email</th><th>Phone</th><th>Location</th><th>Position</th><th>Resume</th><th>Applied</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="apps-body"><tr><td colspan="9"><div class="skeleton" style="height:20px"></div></td></tr></tbody>
+        </table>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;" id="pagination"></div>
+
+    </main>
+  </div>
+</div>
+
+<!-- View / Update Status Modal -->
+<div class="modal-overlay" id="view-modal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Application Detail</h3><button class="modal-close" onclick="closeModal('view-modal')">✕</button></div>
+    <div class="modal-body">
+      <div id="view-modal-body"></div>
+      <div class="form-group" style="margin-top: var(--space-4)">
+        <label>Update Status</label>
+        <select id="status-select"></select>
+      </div>
+      <div id="status-error" class="form-error"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('view-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveStatus()">Save Status</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/admin-api.js"></script>
+<script src="js/admin.js"></script>
+<script>
+const STATUS_OPTIONS = ['New', 'Reviewing', 'Shortlisted', 'Rejected', 'Hired'];
+let currentPage = 1;
+let appsCache = [];
+let viewingAppId = null;
+let searchDebounceTimer = null;
+
+function debouncedSearch() {
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(() => loadApplications(1), 350);
+}
+
+function appRowHTML(a) {
+  return `
+    <tr>
+      <td><strong>${escapeHTML(a.name)}</strong></td>
+      <td>${a.email}</td>
+      <td>${a.phone}</td>
+      <td>${escapeHTML(a.location || '')}</td>
+      <td>${escapeHTML(a.position || '')}</td>
+      <td>
+        <div class="row-actions">
+          <button class="btn-icon" title="View Resume" onclick="viewResume('${a.id}')">📄</button>
+          <button class="btn-icon" title="Download Resume" onclick="downloadResume('${a.id}', '${escapeHTML(a.resume_file || 'resume')}')">⬇️</button>
+        </div>
+      </td>
+      <td>${new Date(a.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+      <td>${statusBadgeHTML(a.status)}</td>
+      <td>
+        <div class="row-actions">
+          <button class="btn-icon" title="View / Update Status" onclick="openApp('${a.id}')">👁️</button>
+          <button class="btn-icon danger" title="Delete" onclick="deleteApp('${a.id}')">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+}
+
+async function loadApplications(page = 1) {
+  currentPage = page;
+  const body = document.getElementById('apps-body');
+  const params = new URLSearchParams({ page, limit: 10 });
+  const search = document.getElementById('search-input').value.trim();
+  const status = document.getElementById('status-filter').value;
+  if (search) params.set('search', search);
+  if (status) params.set('status', status);
+
+  try {
+    const data = await AdminApi.get(`/admin/career-applications?${params.toString()}`);
+    appsCache = data.applications || [];
+    body.innerHTML = appsCache.length ? appsCache.map(appRowHTML).join('') : `<tr><td colspan="9"><div class="empty-state">No career applications match these filters.</div></td></tr>`;
+    body.classList.add('fade-in');
+    renderPagination(data.pagination || {});
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="9"><div class="empty-state">${e.message}</div></td></tr>`;
+  }
+}
+
+function renderPagination(p) {
+  const container = document.getElementById('pagination');
+  if (!p.pages || p.pages <= 1) { container.innerHTML = ''; return; }
+  let html = '';
+  for (let i = 1; i <= p.pages; i++) {
+    html += `<button onclick="loadApplications(${i})" style="${i === currentPage ? 'background: var(--color-forest); color: white;' : ''} padding: 8px 12px; border: 1px solid var(--color-border); cursor: pointer;">${i}</button>`;
+  }
+  container.innerHTML = html;
+}
+
+function resumeUrl(id) {
+  return `${ADMIN_API_BASE}/admin/career-applications/${id}/resume`;
+}
+
+function viewResume(id) {
+  // Opening the download endpoint directly in a new tab needs the auth
+  // token, which a plain window.open() can't attach - fetch it as a blob
+  // instead and open that.
+  fetchResumeBlob(id).then((url) => window.open(url, '_blank'));
+}
+
+async function downloadResume(id, filename) {
+  const url = await fetchResumeBlob(id);
+  if (!url) return;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+}
+
+async function fetchResumeBlob(id) {
+  try {
+    const res = await fetch(resumeUrl(id), { headers: { Authorization: `Bearer ${AdminApi.token()}` } });
+    if (!res.ok) throw new Error('Could not load resume');
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  } catch (e) {
+    adminToast(e.message);
+    return null;
+  }
+}
+
+function openApp(id) {
+  const a = appsCache.find((x) => x.id === id);
+  if (!a) return;
+  viewingAppId = id;
+  document.getElementById('view-modal-body').innerHTML = `
+    <div class="form-group"><label>Name</label><p>${escapeHTML(a.name)}</p></div>
+    <div class="form-group"><label>Email</label><p>${a.email}</p></div>
+    <div class="form-group"><label>Phone</label><p>${a.phone}</p></div>
+    <div class="form-group"><label>Location</label><p>${escapeHTML(a.location || '')}</p></div>
+    <div class="form-group"><label>Position</label><p>${escapeHTML(a.position || '')}</p></div>
+    <div class="form-group"><label>Resume</label><p>${escapeHTML(a.resume_file || '—')}</p></div>
+    <div class="form-group"><label>Applied</label><p>${new Date(a.created_at).toLocaleString('en-IN')}</p></div>
+  `;
+  const select = document.getElementById('status-select');
+  select.innerHTML = STATUS_OPTIONS.map((s) => `<option value="${s}" ${s === a.status ? 'selected' : ''}>${s}</option>`).join('');
+  document.getElementById('status-error').textContent = '';
+  openModal('view-modal');
+}
+
+async function saveStatus() {
+  const errEl = document.getElementById('status-error');
+  const status = document.getElementById('status-select').value;
+  try {
+    await AdminApi.put(`/admin/career-applications/${viewingAppId}/status`, { status });
+    adminToast('Status updated');
+    closeModal('view-modal');
+    loadApplications(currentPage);
+  } catch (e) { errEl.textContent = e.message; }
+}
+
+async function deleteApp(id) {
+  if (!confirm('Delete this application permanently? (The resume file is kept on disk.)')) return;
+  try {
+    await AdminApi.del(`/admin/career-applications/${id}`);
+    adminToast('Application deleted');
+    loadApplications(currentPage);
+  } catch (e) { adminToast(e.message); }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (initAdminShell('career-applications')) loadApplications();
+});
+</script>
+</body>
+</html>

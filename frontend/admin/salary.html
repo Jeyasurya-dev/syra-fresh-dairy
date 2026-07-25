@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Salary — SYRA Admin</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+  <aside id="admin-sidebar"></aside>
+  <div class="admin-content">
+    <header id="admin-topbar"></header>
+    <main class="admin-main">
+
+      <div class="admin-toolbar">
+        <button class="btn btn-outline" onclick="openStructureForm()">💰 Set Salary</button>
+        <button class="btn btn-primary" onclick="openGenerateForm()">⚙️ Generate Salary</button>
+        <div style="flex:1"></div>
+        <select id="filter-type" onchange="loadTransactions(1)" style="max-width:170px">
+          <option value="">All Roles</option>
+          <option value="delivery_boy">Delivery Boys</option>
+          <option value="hub_manager">Hub Managers</option>
+        </select>
+        <input type="month" id="filter-month" onchange="loadTransactions(1)">
+        <select id="filter-status" onchange="loadTransactions(1)" style="max-width:150px">
+          <option value="">All Statuses</option>
+          <option value="pending">Pending</option>
+          <option value="paid">Paid</option>
+        </select>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Slip #</th><th>Name</th><th>Role</th><th>Hub</th><th>Month</th><th>Gross</th><th>Deductions</th><th>Net Pay</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="txn-body"><tr><td colspan="10"><div class="skeleton" style="height:20px"></div></td></tr></tbody>
+        </table>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;" id="pagination"></div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Set Salary Modal -->
+<div class="modal-overlay" id="structure-modal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Set Salary Structure</h3><button class="modal-close" onclick="closeModal('structure-modal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Role</label>
+        <select id="sf-type" onchange="loadPeopleForStructure()">
+          <option value="delivery_boy">Delivery Boy</option>
+          <option value="hub_manager">Hub Manager</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Person</label>
+        <select id="sf-person" onchange="prefillStructure()"></select>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Monthly Salary (₹)</label><input type="number" id="sf-monthly" min="0" step="0.01" required></div>
+        <div class="form-group"><label>Per-Order Incentive (₹)</label><input type="number" id="sf-incentive" min="0" step="0.01" value="0"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Fuel Allowance (₹/month)</label><input type="number" id="sf-fuel" min="0" step="0.01" value="0"></div>
+        <div class="form-group"><label>Per-Day Wage (for absences)</label><input type="number" id="sf-perday" min="0" step="0.01" placeholder="Defaults to monthly ÷ 30"></div>
+      </div>
+      <div id="structure-error" class="form-error"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('structure-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveStructure()">Save Structure</button>
+    </div>
+  </div>
+</div>
+
+<!-- Generate Salary Modal -->
+<div class="modal-overlay" id="generate-modal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Generate Salary Slips</h3><button class="modal-close" onclick="closeModal('generate-modal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Role</label>
+        <select id="gf-type">
+          <option value="delivery_boy">All Delivery Boys</option>
+          <option value="hub_manager">All Hub Managers</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Month</label><input type="month" id="gf-month" required></div>
+      <p class="form-help">Generates one slip per person for this month, using their current salary structure, that month's delivered orders (delivery boys) and marked attendance. People without a salary structure yet, or who already have a slip for this month, are skipped and listed below.</p>
+      <div id="generate-error" class="form-error"></div>
+      <div id="generate-result"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('generate-modal')">Close</button>
+      <button class="btn btn-primary" onclick="runGenerate()">Generate</button>
+    </div>
+  </div>
+</div>
+
+<!-- Adjust Modal -->
+<div class="modal-overlay" id="adjust-modal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Adjust Slip</h3><button class="modal-close" onclick="closeModal('adjust-modal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>Bonus (₹)</label><input type="number" id="af-bonus" min="0" step="0.01"></div>
+        <div class="form-group"><label>Other Deductions (₹)</label><input type="number" id="af-deductions" min="0" step="0.01"></div>
+      </div>
+      <div class="form-group"><label>Fine (₹)</label><input type="number" id="af-fine" min="0" step="0.01"></div>
+      <div class="form-group"><label>Fine Reason</label><input id="af-fine-reason" placeholder="Optional"></div>
+      <div id="adjust-error" class="form-error"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('adjust-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAdjustment()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/admin-api.js"></script>
+<script src="js/admin.js"></script>
+<script>
+let deliveryBoysCache = [];
+let hubManagersCache = [];
+let currentPage = 1;
+let adjustingTxnId = null;
+
+function txnRowHTML(t) {
+  return `
+    <tr>
+      <td>${t.slip_number}</td>
+      <td><strong>${escapeHTML(t.person_name)}</strong></td>
+      <td>${t.person_type === 'hub_manager' ? 'Hub Manager' : 'Delivery Boy'}</td>
+      <td>${t.hub_name || '—'}</td>
+      <td>${t.month}</td>
+      <td>₹${t.gross_earnings.toFixed(2)}</td>
+      <td>₹${t.total_deductions.toFixed(2)}</td>
+      <td><strong>₹${t.net_pay.toFixed(2)}</strong></td>
+      <td>${statusBadgeHTML(t.status === 'paid' ? 'Paid' : 'Pending')}</td>
+      <td>
+        <div class="row-actions">
+          <button class="btn-icon" title="View Slip" onclick="window.open('salary-slip.html?id=${t.id}', '_blank')">🧾</button>
+          <button class="btn-icon" title="Download PDF" onclick="downloadSlipPdf('${t.id}', '${t.slip_number}')">⬇️</button>
+          ${t.status === 'pending' ? `
+            <button class="btn-icon" title="Adjust" onclick="openAdjustModal('${t.id}', ${JSON.stringify(t.breakdown).replace(/'/g, "&apos;")})">✏️</button>
+            <button class="btn-icon" title="Pay Salary" onclick="paySalary('${t.id}')">💸</button>
+            <button class="btn-icon danger" title="Delete" onclick="deleteTxn('${t.id}')">🗑️</button>
+          ` : ''}
+        </div>
+      </td>
+    </tr>`;
+}
+
+async function loadTransactions(page = 1) {
+  currentPage = page;
+  const body = document.getElementById('txn-body');
+  const params = new URLSearchParams({ page, limit: 20 });
+  const type = document.getElementById('filter-type').value;
+  const month = document.getElementById('filter-month').value;
+  const status = document.getElementById('filter-status').value;
+  if (type) params.set('person_type', type);
+  if (month) params.set('month', month);
+  if (status) params.set('status', status);
+
+  try {
+    const data = await AdminApi.get(`/admin/salary/transactions?${params.toString()}`);
+    const txns = data.transactions || [];
+    body.innerHTML = txns.length ? txns.map(txnRowHTML).join('') : `<tr><td colspan="10"><div class="empty-state">No salary slips match these filters yet.</div></td></tr>`;
+    body.classList.add('fade-in');
+    renderTxnPagination(data.pagination || {});
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="10"><div class="empty-state">${e.message}</div></td></tr>`;
+  }
+}
+
+function renderTxnPagination(p) {
+  const container = document.getElementById('pagination');
+  if (!p.pages || p.pages <= 1) { container.innerHTML = ''; return; }
+  let html = '';
+  for (let i = 1; i <= p.pages; i++) {
+    html += `<button onclick="loadTransactions(${i})" style="${i === currentPage ? 'background: var(--color-forest); color: white;' : ''} padding: 8px 12px; border: 1px solid var(--color-border); cursor: pointer;">${i}</button>`;
+  }
+  container.innerHTML = html;
+}
+
+// ---------- Set Salary ----------
+
+async function loadPeopleForStructure() {
+  const type = document.getElementById('sf-type').value;
+  const select = document.getElementById('sf-person');
+  select.innerHTML = '<option value="">Loading...</option>';
+  try {
+    if (type === 'delivery_boy') {
+      if (!deliveryBoysCache.length) {
+        const data = await AdminApi.get('/admin/delivery-boys?status=approved&limit=1000');
+        deliveryBoysCache = data.delivery_boys || [];
+      }
+      select.innerHTML = deliveryBoysCache.map((b) => `<option value="${b.id}">${escapeHTML(b.name)} (${b.hub_name || 'No hub'})</option>`).join('');
+    } else {
+      if (!hubManagersCache.length) {
+        const data = await AdminApi.get('/admin/hub-managers');
+        hubManagersCache = data.hub_managers || [];
+      }
+      select.innerHTML = hubManagersCache.map((m) => `<option value="${m.id}">${escapeHTML(m.name)} (${m.hub_name || 'No hub'})</option>`).join('');
+    }
+  } catch (e) { select.innerHTML = `<option value="">${e.message}</option>`; }
+}
+
+async function prefillStructure() {
+  const type = document.getElementById('sf-type').value;
+  const personId = document.getElementById('sf-person').value;
+  if (!personId) return;
+  try {
+    const data = await AdminApi.get(`/admin/salary/structures/${type}/${personId}`);
+    const s = data.structure;
+    document.getElementById('sf-monthly').value = s ? s.monthly_salary : '';
+    document.getElementById('sf-incentive').value = s ? s.per_order_incentive : 0;
+    document.getElementById('sf-fuel').value = s ? s.fuel_allowance : 0;
+    document.getElementById('sf-perday').value = s ? s.per_day_wage : '';
+  } catch (e) { /* no existing structure - fine, leave fields as-is */ }
+}
+
+async function openStructureForm() {
+  document.getElementById('structure-error').textContent = '';
+  document.getElementById('sf-monthly').value = '';
+  document.getElementById('sf-incentive').value = 0;
+  document.getElementById('sf-fuel').value = 0;
+  document.getElementById('sf-perday').value = '';
+  openModal('structure-modal');
+  await loadPeopleForStructure();
+}
+
+async function saveStructure() {
+  const errEl = document.getElementById('structure-error');
+  errEl.textContent = '';
+  const personId = document.getElementById('sf-person').value;
+  if (!personId) { errEl.textContent = 'Select a person'; return; }
+  try {
+    await AdminApi.post('/admin/salary/structures', {
+      person_type: document.getElementById('sf-type').value,
+      person_id: personId,
+      monthly_salary: document.getElementById('sf-monthly').value,
+      per_order_incentive: document.getElementById('sf-incentive').value,
+      fuel_allowance: document.getElementById('sf-fuel').value,
+      per_day_wage: document.getElementById('sf-perday').value || null,
+    });
+    adminToast('Salary structure saved');
+    closeModal('structure-modal');
+  } catch (e) { errEl.textContent = e.message; }
+}
+
+// ---------- Generate Salary ----------
+
+function openGenerateForm() {
+  document.getElementById('generate-error').textContent = '';
+  document.getElementById('generate-result').innerHTML = '';
+  const now = new Date();
+  document.getElementById('gf-month').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  openModal('generate-modal');
+}
+
+async function runGenerate() {
+  const errEl = document.getElementById('generate-error');
+  const resultEl = document.getElementById('generate-result');
+  errEl.textContent = '';
+  resultEl.innerHTML = 'Generating...';
+  const month = document.getElementById('gf-month').value;
+  if (!month) { errEl.textContent = 'Select a month'; resultEl.innerHTML = ''; return; }
+  try {
+    const data = await AdminApi.post('/admin/salary/generate-bulk', {
+      person_type: document.getElementById('gf-type').value,
+      month,
+    });
+    resultEl.innerHTML = `
+      <p style="color: var(--color-forest); font-weight:600;">✅ Generated ${data.generated_count} slip(s).</p>
+      ${data.skipped_count ? `<p style="color:#a15c00;">⚠️ Skipped ${data.skipped_count}: ${data.skipped.map((s) => `${escapeHTML(s.person_name)} (${escapeHTML(s.reason)})`).join('; ')}</p>` : ''}
+    `;
+    loadTransactions(1);
+  } catch (e) { errEl.textContent = e.message; resultEl.innerHTML = ''; }
+}
+
+// ---------- Adjust / Pay / Delete ----------
+
+function openAdjustModal(id, breakdown) {
+  adjustingTxnId = id;
+  document.getElementById('af-bonus').value = breakdown.bonus || 0;
+  document.getElementById('af-deductions').value = breakdown.other_deductions || 0;
+  document.getElementById('af-fine').value = breakdown.fine || 0;
+  document.getElementById('af-fine-reason').value = breakdown.fine_reason || '';
+  document.getElementById('adjust-error').textContent = '';
+  openModal('adjust-modal');
+}
+
+async function saveAdjustment() {
+  const errEl = document.getElementById('adjust-error');
+  try {
+    await AdminApi.put(`/admin/salary/transactions/${adjustingTxnId}/adjust`, {
+      bonus: document.getElementById('af-bonus').value,
+      other_deductions: document.getElementById('af-deductions').value,
+      fine: document.getElementById('af-fine').value,
+      fine_reason: document.getElementById('af-fine-reason').value,
+    });
+    adminToast('Slip updated');
+    closeModal('adjust-modal');
+    loadTransactions(currentPage);
+  } catch (e) { errEl.textContent = e.message; }
+}
+
+async function paySalary(id) {
+  if (!confirm('Mark this salary slip as Paid? This cannot be undone.')) return;
+  try {
+    await AdminApi.post(`/admin/salary/transactions/${id}/pay`, {});
+    adminToast('Salary paid');
+    loadTransactions(currentPage);
+  } catch (e) { adminToast(e.message); }
+}
+
+async function deleteTxn(id) {
+  if (!confirm('Delete this pending salary slip?')) return;
+  try {
+    await AdminApi.del(`/admin/salary/transactions/${id}`);
+    adminToast('Slip deleted');
+    loadTransactions(currentPage);
+  } catch (e) { adminToast(e.message); }
+}
+
+// Generate Salary Slip PDF: a protected download, so it needs the auth
+// header attached via fetch() + blob rather than a plain <a href> (browsers
+// can't attach Authorization headers to a normal navigation/window.open).
+async function downloadSlipPdf(id, slipNumber) {
+  try {
+    const res = await fetch(`${ADMIN_API_BASE}/admin/salary/transactions/${id}/pdf`, {
+      headers: { Authorization: `Bearer ${AdminApi.token()}` },
+    });
+    if (!res.ok) throw new Error('Could not generate the PDF');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `salary-slip-${slipNumber}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) { adminToast(e.message); }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (initAdminShell('salary')) loadTransactions();
+});
+</script>
+</body>
+</html>

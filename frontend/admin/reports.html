@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Reports — SYRA Admin</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+  <aside id="admin-sidebar"></aside>
+  <div class="admin-content">
+    <header id="admin-topbar"></header>
+    <main class="admin-main">
+
+      <div class="admin-toolbar">
+        <div class="form-group" style="margin:0"><label style="font-size:11px">From</label><input type="date" id="report-start"></div>
+        <div class="form-group" style="margin:0"><label style="font-size:11px">To</label><input type="date" id="report-end"></div>
+        <button class="btn btn-primary" onclick="loadReport()" style="align-self:flex-end">Apply</button>
+        <div style="flex:1"></div>
+        <button class="btn btn-outline" onclick="exportCSV()" style="align-self:flex-end">⬇ Export CSV</button>
+      </div>
+
+      <div class="stat-grid" id="report-stats">
+        <div class="skeleton" style="height:90px"></div>
+        <div class="skeleton" style="height:90px"></div>
+        <div class="skeleton" style="height:90px"></div>
+      </div>
+
+      <div class="card">
+        <div class="section-title-row"><h2>Revenue by Day</h2></div>
+        <div class="bar-chart" id="report-chart"></div>
+      </div>
+
+      <div class="table-wrap" style="margin-top: var(--space-5)">
+        <table class="data-table">
+          <thead><tr><th>Date</th><th>Orders</th><th>Items Sold</th><th>Revenue</th></tr></thead>
+          <tbody id="report-body"><tr><td colspan="4"><div class="skeleton" style="height:20px"></div></td></tr></tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/admin-api.js"></script>
+<script src="js/admin.js"></script>
+<script>
+let lastReport = [];
+
+function defaultDateRange() {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(start.getDate() - 29);
+  document.getElementById('report-start').value = start.toISOString().slice(0, 10);
+  document.getElementById('report-end').value = end.toISOString().slice(0, 10);
+}
+
+async function loadReport() {
+  const start = document.getElementById('report-start').value;
+  const end = document.getElementById('report-end').value;
+  const params = new URLSearchParams();
+  if (start) params.set('start', start);
+  if (end) params.set('end', end);
+
+  document.getElementById('report-body').innerHTML = `<tr><td colspan="4"><div class="skeleton" style="height:20px"></div></td></tr>`;
+  try {
+    const data = await AdminApi.get(`/admin/reports/sales?${params.toString()}`);
+    lastReport = data.report;
+    renderStats(lastReport);
+    renderChart(lastReport);
+    document.getElementById('report-body').innerHTML = lastReport.length
+      ? lastReport.map((r) => `<tr><td>${formatDate(r._id)}</td><td>${r.orders}</td><td>${r.items_sold}</td><td>₹${r.revenue.toLocaleString('en-IN')}</td></tr>`).join('')
+      : `<tr><td colspan="4"><div class="empty-state">No sales in this date range.</div></td></tr>`;
+  } catch (e) {
+    adminToast(e.message);
+  }
+}
+
+function renderStats(report) {
+  const totalOrders = report.reduce((sum, r) => sum + r.orders, 0);
+  const totalRevenue = report.reduce((sum, r) => sum + r.revenue, 0);
+  const totalItems = report.reduce((sum, r) => sum + r.items_sold, 0);
+  document.getElementById('report-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-icon">🧾</div><div><strong>${totalOrders}</strong><span>Orders in range</span></div></div>
+    <div class="stat-card"><div class="stat-icon accent">💰</div><div><strong>₹${totalRevenue.toLocaleString('en-IN')}</strong><span>Total Revenue</span></div></div>
+    <div class="stat-card"><div class="stat-icon"></div><div><strong>${totalItems}</strong><span>Items Sold</span></div></div>`;
+  document.querySelector('#report-stats .stat-card:nth-child(3) .stat-icon').textContent = '📦';
+}
+
+function renderChart(report) {
+  const el = document.getElementById('report-chart');
+  if (!report.length) { el.innerHTML = '<div class="empty-state">No data to chart.</div>'; return; }
+  const max = Math.max(...report.map((r) => r.revenue), 1);
+  const shown = report.slice(-14); // keep chart readable on longer ranges
+  el.innerHTML = shown.map((r) => {
+    const height = Math.max(4, Math.round((r.revenue / max) * 160));
+    const label = new Date(r._id).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    return `<div class="bar-col"><div class="bar" style="height:${height}px" data-value="₹${r.revenue.toFixed(0)}"></div><span class="bar-label">${label}</span></div>`;
+  }).join('');
+}
+
+function exportCSV() {
+  if (!lastReport.length) { adminToast('No data to export'); return; }
+  const rows = [['Date', 'Orders', 'Items Sold', 'Revenue'], ...lastReport.map((r) => [r._id, r.orders, r.items_sold, r.revenue])];
+  const csv = rows.map((row) => row.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `syra-sales-report-${document.getElementById('report-start').value}-to-${document.getElementById('report-end').value}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!initAdminShell('reports')) return;
+  defaultDateRange();
+  loadReport();
+});
+</script>
+</body>
+</html>

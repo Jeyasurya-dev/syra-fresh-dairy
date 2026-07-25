@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FAQs — SYRA Fresh</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<meta name="description" content="Frequently asked questions about SYRA Fresh ordering, delivery, payments and returns.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/pages.css">
+</head>
+<body>
+
+<div id="site-header-root"></div>
+
+<main class="container section">
+  <div class="breadcrumb"><a href="/index.html">Home</a><span>/</span><span aria-current="page">FAQs</span></div>
+  <div class="page-header">
+    <h1>Frequently Asked Questions</h1>
+    <p>Everything you need to know about ordering, delivery, payments and returns.</p>
+  </div>
+
+  <div class="faq-tabs" id="faq-tabs">
+    <button class="active" data-cat="all">All</button>
+    <button data-cat="ordering">Ordering</button>
+    <button data-cat="shipping">Shipping & Delivery</button>
+    <button data-cat="payments">Payments</button>
+    <button data-cat="returns">Returns & Refunds</button>
+    <button data-cat="account">Account</button>
+  </div>
+
+  <div class="accordion" id="faq-accordion"></div>
+</main>
+
+<div id="site-footer-root"></div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/cart.js"></script>
+<script src="../js/layout.js"></script>
+<script src="../js/pages.js"></script>
+<script>
+const FAQ_ITEMS = [
+  { cat: 'ordering', q: 'How do I place an order?', a: 'Browse products by category or search, add items to your cart, and head to checkout. Choose a delivery address and payment method, then confirm — it takes under two minutes.' },
+  { cat: 'ordering', q: 'Is there a minimum order value?', a: 'No minimum order value. However, orders below ₹499 carry a flat ₹40 delivery fee; orders of ₹499 or more get free delivery.' },
+  { cat: 'ordering', q: 'Can I modify my order after placing it?', a: 'Orders can be cancelled from the Orders page as long as they haven\'t been packed yet. Once an order is Packed, Shipped or Out for Delivery it can no longer be changed or cancelled.' },
+  { cat: 'shipping', id: 'shipping', q: 'How fast is delivery?', a: 'Most orders are delivered within 45 minutes of confirmation, seven days a week, from 6 AM to 10 PM.' },
+  { cat: 'shipping', q: 'Do you deliver to my area?', a: 'We currently deliver across Chennai, Bengaluru and Coimbatore, with more cities launching soon. Enter your address at checkout to confirm serviceability.' },
+  { cat: 'shipping', q: 'What if I\'m not home during delivery?', a: 'Our delivery partner will attempt to call you and wait a few minutes. Perishable items may be left with a neighbor or building security only if you authorize it in advance.' },
+  { cat: 'payments', q: 'What payment methods are accepted?', a: 'We accept Cash on Delivery (COD) as well as online payments via UPI, credit/debit cards, net banking and wallets, powered securely by Razorpay.' },
+  { cat: 'payments', q: 'Is it safe to pay online?', a: 'Yes — all online payments are processed through Razorpay\'s PCI-DSS compliant infrastructure. SYRA Fresh never stores your card or UPI details.' },
+  { cat: 'payments', q: 'Can I use a coupon code?', a: 'Active coupon codes can be applied at checkout. Keep an eye on our homepage banner and newsletter for the latest offers.' },
+  { cat: 'returns', id: 'returns', q: 'What is your returns policy?', a: 'If any item arrives damaged, spoiled, or different from what you ordered, contact support within 24 hours of delivery with a photo, and we\'ll issue a replacement or full refund.' },
+  { cat: 'returns', q: 'How long do refunds take?', a: 'Refunds to your original payment method are processed within 5–7 business days. COD refunds are issued as SYRA Fresh wallet credit instantly.' },
+  { cat: 'returns', q: 'Can I return dairy or perishable items?', a: 'For hygiene reasons we can\'t accept physical returns of dairy, ice cream or fresh produce, but damaged or incorrect items are always eligible for replacement or refund.' },
+  { cat: 'account', q: 'How do I create an account?', a: 'Tap Account in the header and choose Sign Up. You just need a name, email and password — phone number is optional but speeds up delivery coordination.' },
+  { cat: 'account', q: 'I forgot my password — what now?', a: 'Password reset via email is coming soon. In the meantime, please contact support and we\'ll help you regain access securely.' },
+  { cat: 'account', q: 'How do I delete my account?', a: 'Email hello@syrafresh.example from your registered address and we\'ll process account deletion within 7 business days, in line with our Privacy Policy.' },
+];
+
+function renderFAQ(cat) {
+  const list = cat === 'all' ? FAQ_ITEMS : FAQ_ITEMS.filter((i) => i.cat === cat);
+  document.getElementById('faq-accordion').innerHTML = list.map((item, i) => `
+    <div class="accordion-item" ${item.id ? `id="${item.id}"` : ''}>
+      <button class="accordion-header" onclick="toggleAccordion(this)">
+        <span>${item.q}</span>
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div class="accordion-body"><div class="accordion-body-inner">${item.a}</div></div>
+    </div>`).join('');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initLayout('');
+  renderFAQ('all');
+  document.getElementById('faq-tabs').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    document.querySelectorAll('#faq-tabs button').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderFAQ(btn.dataset.cat);
+  });
+
+  const hash = window.location.hash.replace('#', '');
+  if (hash) {
+    const targetItem = FAQ_ITEMS.find((i) => i.id === hash);
+    if (targetItem) {
+      document.querySelectorAll('#faq-tabs button').forEach((b) => b.classList.toggle('active', b.dataset.cat === targetItem.cat));
+      renderFAQ(targetItem.cat);
+      setTimeout(() => {
+        const el = document.getElementById(hash);
+        if (el) { el.classList.add('open'); el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+      }, 100);
+    }
+  }
+});
+</script>
+</body>
+</html>

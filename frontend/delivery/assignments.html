@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Assignments - SYRA Fresh</title>
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/theme.css">
+    <style>
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        .filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-btn {
+            padding: 8px 16px;
+            border: 2px solid var(--color-border);
+            background: transparent;
+            color: var(--color-ink);
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .filter-btn.active {
+            background: var(--color-forest);
+            color: white;
+            border-color: var(--color-forest);
+        }
+        
+        .assignment-card {
+            background: var(--color-surface);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            border-left: 4px solid var(--color-forest);
+        }
+        
+        .assignment-info {
+            flex: 1;
+        }
+        
+        .assignment-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .order-number {
+            font-weight: 600;
+            font-size: 16px;
+            color: var(--color-ink);
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #e7f3ff;
+            color: #0066cc;
+        }
+        
+        .status-badge.out {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-badge.delivered {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-badge.failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .assignment-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+        
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .detail-label {
+            color: var(--color-ink-soft);
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+        
+        .detail-value {
+            font-weight: 600;
+            color: var(--color-ink);
+        }
+        
+        .assignment-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: var(--color-forest);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--color-forest-dark);
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            color: var(--color-forest);
+            border: 2px solid var(--color-forest);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--color-forest);
+            color: white;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--color-ink-soft);
+        }
+        
+        .empty-state p {
+            font-size: 16px;
+        }
+        
+        .pagination {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .pagination button {
+            padding: 8px 12px;
+            border: 1px solid var(--color-border);
+            background: var(--color-surface);
+            color: var(--color-ink);
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        
+        .pagination button.active {
+            background: var(--color-forest);
+            color: white;
+            border-color: var(--color-forest);
+        }
+        
+        .back-btn {
+            background: transparent;
+            color: var(--color-forest);
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📦 My Assignments</h1>
+            <a href="dashboard.html" class="back-btn">← Back to Dashboard</a>
+        </div>
+        
+        <div class="filters" id="filters"></div>
+        
+        <div id="assignmentsContainer"></div>
+        
+        <div class="pagination" id="pagination"></div>
+    </div>
+    
+    <script src="delivery-shared.js"></script>
+    <script>
+        const API_URL = "http://localhost:5000/api/delivery";
+        let currentPage = 1;
+        let currentStatus = null;
+        const limit = 10;
+        
+        async function checkAuth() {
+            const token = localStorage.getItem("delivery_token");
+            if (!token) {
+                window.location.href = "login.html";
+                return;
+            }
+            return token;
+        }
+        
+        async function loadAssignments(page = 1, status = null) {
+            const token = await checkAuth();
+            
+            let url = `${API_URL}/assignments?page=${page}&limit=${limit}`;
+            if (status) url += `&status=${status}`;
+            
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        "Authorization": `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderAssignments(data.assignments);
+                    renderPagination(data.pagination, status);
+                    currentPage = page;
+                    currentStatus = status;
+                }
+            } catch (error) {
+                console.error("Error loading assignments:", error);
+            }
+        }
+        
+        function renderAssignments(assignments) {
+            const container = document.getElementById("assignmentsContainer");
+            
+            if (assignments.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No assignments found</p></div>';
+                return;
+            }
+            
+            let html = '';
+            assignments.forEach(assignment => {
+                const statusClass = assignment.status === 'out_for_delivery' ? 'out' : assignment.status;
+                html += `
+                    <div class="assignment-card">
+                        <div class="assignment-info">
+                            <div class="assignment-header">
+                                <span class="order-number">${assignment.order_number}</span>
+                                <span class="status-badge ${statusClass}">${assignment.status.replace(/_/g, ' ').toUpperCase()}</span>
+                            </div>
+                            
+                            <div class="assignment-details">
+                                <div class="detail-item">
+                                    <span class="detail-label">Customer</span>
+                                    <span class="detail-value">${assignment.customer_name}</span>
+                                    <span style="font-size: 12px; color: var(--color-ink-soft);">${assignment.customer_phone}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Delivery Address</span>
+                                    <span class="detail-value">${assignment.delivery_address?.line1 || 'N/A'}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">COD Amount</span>
+                                    <span class="detail-value">₹${assignment.cod_collected.toFixed(2)}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="assignment-actions">
+                                <a href="order-details.html?assignment_id=${assignment.assignment_id}" class="btn btn-primary">View Details</a>
+                                ${assignment.status === 'assigned' ? `<button class="btn btn-secondary" onclick="updateStatus('${assignment.assignment_id}', 'picked_up')">Mark Picked Up</button>` : ''}
+                                ${assignment.status === 'picked_up' ? `<button class="btn btn-secondary" onclick="updateStatus('${assignment.assignment_id}', 'out_for_delivery')">Out For Delivery</button>` : ''}
+                                ${assignment.status === 'out_for_delivery' ? `<button class="btn btn-secondary" onclick="updateStatus('${assignment.assignment_id}', 'delivered')">Mark Delivered</button>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function renderPagination(pagination, status) {
+            const container = document.getElementById("pagination");
+            let html = '';
+            
+            for (let i = 1; i <= pagination.pages; i++) {
+                html += `<button class="${i === currentPage ? 'active' : ''}" onclick="loadAssignments(${i}, '${status}')">Page ${i}</button>`;
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        function renderFilters() {
+            const filters = document.getElementById("filters");
+            const statuses = ['assigned', 'picked_up', 'out_for_delivery', 'delivered', 'failed'];
+            
+            let html = '<button class="filter-btn active" onclick="loadAssignments(1, null)">All</button>';
+            statuses.forEach(status => {
+                html += `<button class="filter-btn" onclick="loadAssignments(1, '${status}')">${status.replace(/_/g, ' ').toUpperCase()}</button>`;
+            });
+            
+            filters.innerHTML = html;
+        }
+        
+        async function updateStatus(assignmentId, newStatus) {
+            const token = localStorage.getItem("delivery_token");
+            
+            try {
+                const response = await fetch(`${API_URL}/assignments/${assignmentId}/status`, {
+                    method: "PUT",
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ status: newStatus })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert(data.message);
+                    loadAssignments(currentPage, currentStatus);
+                } else {
+                    alert(data.message || "Failed to update status");
+                }
+            } catch (error) {
+                console.error("Error updating status:", error);
+                alert("Error updating status");
+            }
+        }
+        
+        // Initial load
+        checkAuth();
+        renderDeliveryNav('assignments.html');
+        renderFilters();
+        loadAssignments();
+    </script>
+</body>
+</html>

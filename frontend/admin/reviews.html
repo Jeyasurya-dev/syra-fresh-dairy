@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reviews — SYRA Admin</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+  <aside id="admin-sidebar"></aside>
+  <div class="admin-content">
+    <header id="admin-topbar"></header>
+    <main class="admin-main">
+
+      <div class="admin-toolbar">
+        <select id="rating-filter">
+          <option value="">All Ratings</option>
+          <option value="5">★★★★★ (5)</option>
+          <option value="4">★★★★☆ (4)</option>
+          <option value="3">★★★☆☆ (3)</option>
+          <option value="2">★★☆☆☆ (2)</option>
+          <option value="1">★☆☆☆☆ (1)</option>
+        </select>
+        <div style="flex:1"></div>
+        <span id="review-count" style="color:var(--color-ink-soft); font-size:var(--fs-sm)"></span>
+      </div>
+
+      <div id="reviews-list">
+        <div class="skeleton" style="height:100px; margin-bottom:12px"></div>
+        <div class="skeleton" style="height:100px; margin-bottom:12px"></div>
+        <div class="skeleton" style="height:100px"></div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/admin-api.js"></script>
+<script src="js/admin.js"></script>
+<script>
+let allReviews = [];
+const sessionApproved = new Set();
+
+function reviewCardHTML(r) {
+  // BUG FIX: the backend now returns a real is_approved field, so approval
+  // state survives a page reload. sessionApproved is kept only so a click
+  // reflects instantly without waiting on the next loadReviews() round trip.
+  const approved = r.is_approved === true || sessionApproved.has(r.id);
+  return `
+    <div class="card" style="margin-bottom:12px" id="review-${r.id}">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap">
+        <div>
+          <strong>${escapeHTML(r.user_name || 'Anonymous')}</strong>
+          <span style="color:var(--color-mango-dark); margin-left:8px">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>
+          <p style="color:var(--color-ink-soft); font-size:var(--fs-xs); margin-top:2px">${formatDateTime(r.created_at)}</p>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center">
+          ${approved ? statusBadgeHTML('Approved') : `<button class="btn btn-sm btn-primary" onclick="approveReview('${r.id}')">Approve</button>`}
+          <button class="btn-icon danger" title="Delete" onclick="deleteReview('${r.id}')">🗑️</button>
+        </div>
+      </div>
+      <p style="margin-top:10px">${escapeHTML(r.comment || '')}</p>
+    </div>`;
+}
+
+function renderReviews() {
+  const filter = document.getElementById('rating-filter').value;
+  const filtered = filter ? allReviews.filter((r) => String(r.rating) === filter) : allReviews;
+  document.getElementById('review-count').textContent = `${filtered.length} review${filtered.length === 1 ? '' : 's'}`;
+  document.getElementById('reviews-list').innerHTML = filtered.length
+    ? filtered.map(reviewCardHTML).join('')
+    : `<div class="empty-state"><div class="icon">⭐</div><p>No reviews to moderate yet.</p></div>`;
+}
+
+async function loadReviews() {
+  try {
+    const data = await AdminApi.get('/admin/reviews');
+    allReviews = data.reviews;
+    renderReviews();
+  } catch (e) {
+    document.getElementById('reviews-list').innerHTML = `<div class="empty-state">${e.message}</div>`;
+  }
+}
+
+async function approveReview(id) {
+  try {
+    await AdminApi.put(`/admin/reviews/${id}/approve`, {});
+    sessionApproved.add(id);
+    adminToast('Review approved');
+    renderReviews();
+  } catch (e) { adminToast(e.message); }
+}
+
+async function deleteReview(id) {
+  if (!confirm('Delete this review permanently?')) return;
+  try {
+    await AdminApi.del(`/admin/reviews/${id}`);
+    adminToast('Review deleted');
+    allReviews = allReviews.filter((r) => r.id !== id);
+    renderReviews();
+  } catch (e) { adminToast(e.message); }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!initAdminShell('reviews')) return;
+  loadReviews();
+  document.getElementById('rating-filter').addEventListener('change', renderReviews);
+});
+</script>
+</body>
+</html>

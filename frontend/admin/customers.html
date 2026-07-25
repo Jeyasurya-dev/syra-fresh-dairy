@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customers — SYRA Admin</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+  <aside id="admin-sidebar"></aside>
+  <div class="admin-content">
+    <header id="admin-topbar"></header>
+    <main class="admin-main">
+
+      <div class="admin-toolbar">
+        <div class="search-wrap">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="customer-search" placeholder="Search by name or email...">
+        </div>
+        <div style="flex:1"></div>
+        <span id="customer-count" style="color:var(--color-ink-soft); font-size:var(--fs-sm)"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Customer</th><th>Email</th><th>Phone</th><th>Orders</th><th>Joined</th><th>Status</th></tr></thead>
+          <tbody id="customers-body"><tr><td colspan="6"><div class="skeleton" style="height:20px"></div></td></tr></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination"></div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/admin-api.js"></script>
+<script src="js/admin.js"></script>
+<script>
+let customersCache = [];
+let currentPage = 1;
+
+function initials(name) {
+  return (name || '?').split(' ').map((s) => s[0]).slice(0, 2).join('').toUpperCase();
+}
+
+function customerRowHTML(c) {
+  return `
+    <tr>
+      <td style="display:flex; align-items:center; gap:10px">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--color-leaf-light);color:var(--color-forest);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0">${initials(c.name)}</div>
+        <strong>${c.name || 'Unnamed'}</strong>
+      </td>
+      <td>${c.email}</td>
+      <td>${c.phone || '—'}</td>
+      <td><a href="/admin/orders.html" style="font-weight:700; color:var(--color-forest)">${c.order_count} order${c.order_count === 1 ? '' : 's'}</a></td>
+      <td>${formatDate(c.joined)}</td>
+      <td>${statusBadgeHTML(c.is_active === false ? 'Inactive' : 'Active')}</td>
+    </tr>`;
+}
+
+function renderCustomers() {
+  const term = document.getElementById('customer-search').value.trim().toLowerCase();
+  const filtered = term
+    ? customersCache.filter((c) => (c.name || '').toLowerCase().includes(term) || (c.email || '').toLowerCase().includes(term))
+    : customersCache;
+  document.getElementById('customers-body').innerHTML = filtered.length
+    ? filtered.map(customerRowHTML).join('')
+    : `<tr><td colspan="6"><div class="empty-state">No customers found.</div></td></tr>`;
+}
+
+async function loadCustomers(page = 1) {
+  currentPage = page;
+  const body = document.getElementById('customers-body');
+  body.innerHTML = `<tr><td colspan="6"><div class="skeleton" style="height:20px"></div></td></tr>`;
+  try {
+    const data = await AdminApi.get(`/admin/customers?page=${page}&page_size=20`);
+    customersCache = data.customers;
+    document.getElementById('customer-count').textContent = `${data.pagination.total} customer${data.pagination.total === 1 ? '' : 's'}`;
+    renderCustomers();
+    renderAdminPagination('pagination', data.pagination, loadCustomers);
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="6"><div class="empty-state">${e.message}</div></td></tr>`;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!initAdminShell('customers')) return;
+  loadCustomers(1);
+  document.getElementById('customer-search').addEventListener('input', debounce(renderCustomers, 200));
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customers — SYRA Hub Manager</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="../admin/css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+  <aside id="admin-sidebar"></aside>
+  <div class="admin-content">
+    <header id="admin-topbar"></header>
+    <main class="admin-main">
+
+      <p class="form-help" style="margin-bottom: var(--space-3)">Customers who have placed at least one order routed to your hub.</p>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Name</th><th>Email</th><th>Mobile</th><th>Orders from your hub</th></tr></thead>
+          <tbody id="customers-body"><tr><td colspan="4"><div class="skeleton" style="height:20px"></div></td></tr></tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/hubmanager-api.js"></script>
+<script src="js/hubmanager.js"></script>
+<script>
+function customerRowHTML(c) {
+  return `
+    <tr>
+      <td><strong>${hmEscapeHTML(c.name || '')}</strong></td>
+      <td>${c.email || '—'}</td>
+      <td>${c.mobile || '—'}</td>
+      <td>${c.order_count}</td>
+    </tr>`;
+}
+
+async function loadCustomers() {
+  const body = document.getElementById('customers-body');
+  try {
+    const data = await HubManagerApi.get('/hub-manager/customers');
+    const customers = data.customers || [];
+    body.innerHTML = customers.length ? customers.map(customerRowHTML).join('') : `<tr><td colspan="4"><div class="empty-state">No customers have ordered from your hub yet.</div></td></tr>`;
+    body.classList.add('fade-in');
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="4"><div class="empty-state">${e.message}</div></td></tr>`;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (initHubManagerShell('customers')) loadCustomers();
+});
+</script>
+</body>
+</html>

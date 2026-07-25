@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Search — SYRA Fresh</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<meta name="description" content="Search SYRA Fresh's full range of dairy, ice cream, snacks and fruit.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/pages.css">
+</head>
+<body>
+
+<div id="site-header-root"></div>
+
+<main class="container section">
+  <div class="search-hero">
+    <h1 id="search-heading">What are you looking for?</h1>
+    <div class="search-box-lg">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="live-search-input" placeholder="Search milk, paneer, mangoes, granola..." autocomplete="off">
+      <button class="clear-btn" id="clear-search" aria-label="Clear search" onclick="clearSearch()">✕</button>
+      <div class="search-suggest-list" id="suggest-list"></div>
+    </div>
+    <div class="chip-row" id="trending-chips"></div>
+  </div>
+
+  <div class="recent-search-row" id="recent-row" style="display:none">
+    <h4>Recent searches</h4>
+    <button onclick="clearRecent()">Clear all</button>
+  </div>
+  <div class="chip-row" id="recent-chips" style="margin-top:-12px; margin-bottom: var(--space-5)"></div>
+
+  <div id="search-results-wrap" style="display:none">
+    <div class="toolbar">
+      <span id="result-count" style="color:var(--color-ink-soft); font-size:var(--fs-sm)"></span>
+      <select id="sort-select" onchange="runSearch(1)">
+        <option value="newest">Newest</option>
+        <option value="price_low">Price: Low to High</option>
+        <option value="price_high">Price: High to Low</option>
+        <option value="rating">Top Rated</option>
+      </select>
+    </div>
+    <div class="product-grid" id="search-grid"></div>
+    <div id="pagination" style="display:flex; gap:8px; justify-content:center; margin-top:var(--space-5)"></div>
+  </div>
+</main>
+
+<div id="site-footer-root"></div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/cart.js"></script>
+<script src="../js/layout.js"></script>
+<script src="../js/pages.js"></script>
+<script>
+const TRENDING_TERMS = ['Milk', 'Paneer', 'Mangoes', 'Almonds', 'Belgian Chocolate', 'Curd', 'Granola', 'Grapes'];
+
+function renderTrending() {
+  document.getElementById('trending-chips').innerHTML = TRENDING_TERMS
+    .map((t) => `<button class="chip" onclick="applySearch('${t}')">🔥 ${t}</button>`).join('');
+}
+
+function renderRecent() {
+  const list = RecentSearches.get();
+  document.getElementById('recent-row').style.display = list.length ? 'flex' : 'none';
+  document.getElementById('recent-chips').innerHTML = list
+    .map((t) => `<button class="chip" onclick="applySearch('${t}')">🕐 ${t}</button>`).join('');
+}
+
+function clearRecent() { RecentSearches.clear(); renderRecent(); }
+
+function applySearch(term) {
+  document.getElementById('live-search-input').value = term;
+  window.history.replaceState({}, '', `/pages/search.html?q=${encodeURIComponent(term)}`);
+  runSearch(1);
+}
+
+function clearSearch() {
+  document.getElementById('live-search-input').value = '';
+  document.getElementById('clear-search').style.display = 'none';
+  document.getElementById('suggest-list').classList.remove('show');
+  window.history.replaceState({}, '', '/pages/search.html');
+  document.getElementById('search-results-wrap').style.display = 'none';
+  document.getElementById('search-heading').textContent = 'What are you looking for?';
+  document.getElementById('live-search-input').focus();
+}
+
+let currentPage = 1;
+
+async function runSearch(page = 1) {
+  currentPage = page;
+  const q = document.getElementById('live-search-input').value.trim();
+  const wrap = document.getElementById('search-results-wrap');
+  const grid = document.getElementById('search-grid');
+  const countEl = document.getElementById('result-count');
+  const heading = document.getElementById('search-heading');
+
+  if (!q) { wrap.style.display = 'none'; heading.textContent = 'What are you looking for?'; return; }
+
+  document.getElementById('clear-search').style.display = 'block';
+  document.getElementById('suggest-list').classList.remove('show');
+  heading.textContent = `Results for "${q}"`;
+  wrap.style.display = 'block';
+  grid.innerHTML = Array(8).fill('<div class="skeleton" style="height:300px"></div>').join('');
+  RecentSearches.add(q);
+  renderRecent();
+
+  const params = new URLSearchParams();
+  params.set('q', q);
+  params.set('sort', document.getElementById('sort-select').value);
+  params.set('page', page);
+  params.set('page_size', 12);
+
+  try {
+    const data = await Api.get(`/products?${params.toString()}`);
+    grid.innerHTML = data.products.map(productCardHTML).join('') || `<div class="empty-state" style="grid-column:1/-1"><div class="icon">🔍</div><p>No products match "${q}". Try a different search term.</p></div>`;
+    countEl.textContent = `${data.pagination.total} result${data.pagination.total === 1 ? '' : 's'} found`;
+    renderPagination(data.pagination);
+    syncWishlistState(grid);
+  } catch (e) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="icon">⚠️</div><p>Could not search right now. Is the SYRA Fresh API running?</p></div>`;
+    countEl.textContent = '';
+  }
+}
+
+function renderPagination(pagination) {
+  const el = document.getElementById('pagination');
+  const totalPages = pagination.total_pages || Math.ceil(pagination.total / pagination.page_size) || 1;
+  let html = '';
+  for (let i = 1; i <= totalPages; i++) {
+    html += `<button class="btn btn-sm ${i === pagination.page ? 'btn-primary' : 'btn-outline'}" onclick="runSearch(${i})">${i}</button>`;
+  }
+  el.innerHTML = html;
+}
+
+const showSuggestions = debounce(async (q) => {
+  const box = document.getElementById('suggest-list');
+  if (!q) { box.classList.remove('show'); return; }
+  try {
+    const data = await Api.get(`/products?q=${encodeURIComponent(q)}&page_size=5`);
+    if (!data.products.length) { box.classList.remove('show'); return; }
+    box.innerHTML = data.products.map((p) => `
+      <button onclick="window.location.href='/pages/product-details.html?slug=${p.slug}'">
+        <img src="${(p.images && p.images[0]) ? resolveImage(p.images[0]) : 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=60&q=80'}" style="width:34px;height:34px;border-radius:8px;object-fit:cover" alt="">
+        <span>${p.name}</span>
+        <span style="margin-left:auto; color:var(--color-ink-soft)">₹${p.price}</span>
+      </button>`).join('');
+    box.classList.add('show');
+  } catch (e) { box.classList.remove('show'); }
+}, 300);
+
+document.addEventListener('DOMContentLoaded', () => {
+  initLayout('products');
+  renderTrending();
+  renderRecent();
+
+  const input = document.getElementById('live-search-input');
+  const url = new URLSearchParams(window.location.search);
+  if (url.get('q')) {
+    input.value = url.get('q');
+    document.getElementById('clear-search').style.display = 'block';
+    runSearch(1);
+  }
+
+  input.addEventListener('input', () => {
+    document.getElementById('clear-search').style.display = input.value ? 'block' : 'none';
+    showSuggestions(input.value.trim());
+  });
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); applySearch(input.value.trim()); } });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.search-box-lg')) document.getElementById('suggest-list').classList.remove('show');
+  });
+});
+</script>
+</body>
+</html>

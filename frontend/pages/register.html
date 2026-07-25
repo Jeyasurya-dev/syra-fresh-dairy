@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Create Account — SYRA Fresh</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<meta name="description" content="Create your free SYRA Fresh account for faster checkout, order tracking and exclusive offers.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  body { background: var(--gradient-hero); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--space-4); }
+  .auth-card { background: var(--color-surface); border-radius: var(--radius-lg); padding: var(--space-6); width: 100%; max-width: 420px; box-shadow: var(--shadow-lg); }
+  .auth-tabs { display: flex; background: var(--color-surface-alt); border-radius: 100px; padding: 4px; margin-bottom: var(--space-5); }
+  .auth-tabs button { flex: 1; padding: 0.6rem; border-radius: 100px; font-weight: 600; font-size: var(--fs-sm); color: var(--color-ink-soft); }
+  .auth-tabs button.active { background: var(--color-forest); color: #fff; }
+  .auth-logo { text-align: center; font-family: var(--font-display); font-size: var(--fs-lg); color: var(--color-forest); margin-bottom: var(--space-5); }
+  .auth-back { position: fixed; top: 20px; left: 20px; color: #fff; font-weight: 600; font-size: var(--fs-sm); display: flex; align-items: center; gap: 6px; }
+</style>
+</head>
+<body>
+
+<a href="/index.html" class="auth-back">← Back to shop</a>
+
+<div class="auth-card">
+  <div class="auth-logo">🥛 SYRA Fresh</div>
+  <div class="auth-tabs">
+    <button id="tab-login" onclick="switchTab('login')">Log In</button>
+    <button id="tab-register" class="active" onclick="switchTab('register')">Sign Up</button>
+  </div>
+
+  <form id="login-form" style="display:none">
+    <div class="form-group">
+      <label>Email or Phone</label>
+      <input type="text" id="login-email" required>
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="login-password" required>
+    </div>
+    <div id="login-error" class="form-error"></div>
+    <button class="btn btn-primary btn-block" type="submit">Log In</button>
+  </form>
+
+  <form id="register-form">
+    <div class="form-group">
+      <label>Full Name</label>
+      <input type="text" id="reg-name" required>
+    </div>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="reg-email" required>
+    </div>
+    <div class="form-group">
+      <label>Phone (optional)</label>
+      <input type="tel" id="reg-phone" placeholder="10-digit mobile number">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="reg-password" required minlength="8">
+      <small style="color:var(--color-ink-soft); font-size:var(--fs-xs)">At least 8 characters with a letter and a number</small>
+    </div>
+    <div id="register-error" class="form-error"></div>
+    <button class="btn btn-primary btn-block" type="submit">Create Account</button>
+  </form>
+  <p style="text-align:center; font-size:var(--fs-xs); color:var(--color-ink-soft); margin-top:var(--space-4)">
+    By signing up you agree to our <a href="/pages/privacy.html" style="color:var(--color-forest); font-weight:600">Privacy Policy</a>.
+  </p>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script>
+function switchTab(tab) {
+  document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+  document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+  document.getElementById('login-form').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('register-form').style.display = tab === 'register' ? 'block' : 'none';
+  if (tab === 'login') window.history.replaceState({}, '', '/pages/login.html' + window.location.search);
+  else window.history.replaceState({}, '', '/pages/register.html' + window.location.search);
+}
+
+function redirectAfterAuth() {
+  const next = new URLSearchParams(window.location.search).get('next');
+  window.location.href = next || '/index.html';
+}
+
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  try {
+    await Auth.login({ email: document.getElementById('login-email').value.trim(), password: document.getElementById('login-password').value });
+    redirectAfterAuth();
+  } catch (err) { errEl.textContent = err.message; }
+});
+
+document.getElementById('register-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('register-error');
+  errEl.textContent = '';
+  try {
+    await Auth.register({
+      name: document.getElementById('reg-name').value.trim(),
+      email: document.getElementById('reg-email').value.trim(),
+      phone: document.getElementById('reg-phone').value.trim() || undefined,
+      password: document.getElementById('reg-password').value,
+    });
+    redirectAfterAuth();
+  } catch (err) { errEl.textContent = err.message; }
+});
+
+if (Auth.isLoggedIn()) redirectAfterAuth();
+</script>
+</body>
+</html>

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - SYRA Fresh Delivery</title>
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/theme.css">
+    <style>
+        body { background: var(--color-bg); color: var(--color-ink); }
+        .container { max-width: 700px; margin: 0 auto; padding: 20px; }
+        .back-link { display: inline-flex; align-items: center; gap: 5px; color: var(--color-forest); text-decoration: none; margin-bottom: 20px; font-size: 14px; }
+        .page-title { font-size: 24px; font-weight: 700; margin-bottom: 30px; }
+        .settings-card { background: var(--color-surface); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-sm); margin-bottom: 20px; }
+        .settings-card-header { padding: 16px 20px; border-bottom: 1px solid var(--color-border); font-weight: 600; font-size: 15px; color: var(--color-ink); }
+        .settings-item { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--color-border); }
+        .settings-item:last-child { border-bottom: none; }
+        .settings-label { font-size: 14px; color: var(--color-ink); }
+        .settings-desc { font-size: 12px; color: var(--color-ink-soft); margin-top: 4px; }
+        .toggle-switch { position: relative; display: inline-block; width: 46px; height: 24px; flex-shrink: 0; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #ccc; transition: .3s; border-radius: 24px; }
+        .toggle-slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; transition: .3s; border-radius: 50%; }
+        input:checked + .toggle-slider { background: var(--color-forest); }
+        input:checked + .toggle-slider:before { transform: translateX(22px); }
+        .change-password-form { padding: 20px; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 14px; font-weight: 500; color: var(--color-ink); margin-bottom: 6px; }
+        .form-group input { width: 100%; padding: 10px 14px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface-alt); color: var(--color-ink); font-size: 14px; box-sizing: border-box; }
+        .form-group input:focus { outline: none; border-color: var(--color-forest); }
+        .error-text { color: #dc3545; font-size: 12px; margin-top: 4px; }
+        .btn-primary { width: 100%; padding: 12px; background: var(--color-forest); color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background .3s; }
+        .btn-primary:hover { background: var(--color-forest-dark); }
+        .btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+        .btn-danger { width: 100%; padding: 12px; background: #dc3545; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 10px; }
+        .btn-danger:hover { background: #c82333; }
+        .toast { position: fixed; bottom: 20px; right: 20px; padding: 14px 20px; border-radius: 8px; color: white; font-size: 14px; font-weight: 500; opacity: 0; transition: opacity .3s; z-index: 9999; max-width: 300px; }
+        .toast.success { background: #28a745; }
+        .toast.error { background: #dc3545; }
+        .toast.show { opacity: 1; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="dashboard.html" class="back-link">← Back to Dashboard</a>
+        <div class="page-title">⚙️ Settings</div>
+
+        <!-- Notifications -->
+        <div class="settings-card">
+            <div class="settings-card-header">🔔 Notifications</div>
+            <div class="settings-item">
+                <div>
+                    <div class="settings-label">Order Assignment Alerts</div>
+                    <div class="settings-desc">Get notified when a new order is assigned</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="notif_assignment" checked onchange="saveSetting('notif_assignment', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="settings-item">
+                <div>
+                    <div class="settings-label">Order Status Updates</div>
+                    <div class="settings-desc">Notifications for order status changes</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="notif_status" checked onchange="saveSetting('notif_status', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="settings-item">
+                <div>
+                    <div class="settings-label">Earnings Alerts</div>
+                    <div class="settings-desc">Notifications about your daily earnings</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="notif_earnings" onchange="saveSetting('notif_earnings', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Appearance -->
+        <div class="settings-card">
+            <div class="settings-card-header">🎨 Appearance</div>
+            <div class="settings-item">
+                <div>
+                    <div class="settings-label">Dark Mode</div>
+                    <div class="settings-desc">Switch between dark and light theme</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode(this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Privacy -->
+        <div class="settings-card">
+            <div class="settings-card-header">🔒 Privacy</div>
+            <div class="settings-item">
+                <div>
+                    <div class="settings-label">Share Location While Delivering</div>
+                    <div class="settings-desc">Allow customers to see your live location during active deliveries</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="shareLocation" checked onchange="saveSetting('shareLocation', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Change Password -->
+        <div class="settings-card">
+            <div class="settings-card-header">🔑 Change Password</div>
+            <div class="change-password-form">
+                <div class="form-group">
+                    <label>Current Password</label>
+                    <input type="password" id="currentPassword" placeholder="Enter current password">
+                    <div class="error-text" id="currentPasswordError"></div>
+                </div>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="password" id="newPassword" placeholder="Minimum 6 characters">
+                    <div class="error-text" id="newPasswordError"></div>
+                </div>
+                <div class="form-group">
+                    <label>Confirm New Password</label>
+                    <input type="password" id="confirmPassword" placeholder="Re-enter new password">
+                    <div class="error-text" id="confirmPasswordError"></div>
+                </div>
+                <button class="btn-primary" id="changePasswordBtn" onclick="changePassword()">Update Password</button>
+            </div>
+        </div>
+
+        <!-- Account -->
+        <div class="settings-card">
+            <div class="settings-card-header">⚠️ Account</div>
+            <div class="settings-item">
+                <div>
+                    <div class="settings-label">Log Out</div>
+                    <div class="settings-desc">Sign out from all devices</div>
+                </div>
+                <button onclick="logout()" style="padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const API_URL = "http://localhost:5000/api/delivery";
+
+        function showToast(message, type = "success") {
+            const toast = document.getElementById("toast");
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => { toast.className = `toast ${type}`; }, 3000);
+        }
+
+        function saveSetting(key, value) {
+            const settings = JSON.parse(localStorage.getItem("delivery_settings") || "{}");
+            settings[key] = value;
+            localStorage.setItem("delivery_settings", JSON.stringify(settings));
+            showToast("Setting saved");
+        }
+
+        function loadSettings() {
+            const settings = JSON.parse(localStorage.getItem("delivery_settings") || "{}");
+            Object.keys(settings).forEach(key => {
+                const el = document.getElementById(key);
+                if (el && el.type === "checkbox") el.checked = settings[key];
+            });
+
+            const dark = localStorage.getItem("syra_theme") === "dark";
+            document.getElementById("darkModeToggle").checked = dark;
+        }
+
+        function toggleDarkMode(enabled) {
+            if (enabled) {
+                document.documentElement.setAttribute("data-theme", "dark");
+                localStorage.setItem("syra_theme", "dark");
+            } else {
+                document.documentElement.removeAttribute("data-theme");
+                localStorage.setItem("syra_theme", "light");
+            }
+            showToast("Theme updated");
+        }
+
+        async function changePassword() {
+            const currentPassword = document.getElementById("currentPassword").value;
+            const newPassword = document.getElementById("newPassword").value;
+            const confirmPassword = document.getElementById("confirmPassword").value;
+            const btn = document.getElementById("changePasswordBtn");
+
+            document.getElementById("currentPasswordError").textContent = "";
+            document.getElementById("newPasswordError").textContent = "";
+            document.getElementById("confirmPasswordError").textContent = "";
+
+            if (!currentPassword) { document.getElementById("currentPasswordError").textContent = "Required"; return; }
+            if (newPassword.length < 6) { document.getElementById("newPasswordError").textContent = "Min 6 characters"; return; }
+            if (newPassword !== confirmPassword) { document.getElementById("confirmPasswordError").textContent = "Passwords do not match"; return; }
+
+            btn.disabled = true;
+            btn.textContent = "Updating...";
+
+            const token = localStorage.getItem("delivery_token");
+            try {
+                const response = await fetch(`${API_URL}/auth/change-password`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword, confirm_password: confirmPassword })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    showToast("Password updated successfully");
+                    document.getElementById("currentPassword").value = "";
+                    document.getElementById("newPassword").value = "";
+                    document.getElementById("confirmPassword").value = "";
+                } else {
+                    showToast(data.message || "Failed to update password", "error");
+                }
+            } catch (err) {
+                showToast("Network error. Try again.", "error");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Update Password";
+            }
+        }
+
+        function logout() {
+            if (confirm("Are you sure you want to logout?")) {
+                localStorage.removeItem("delivery_token");
+                localStorage.removeItem("delivery_user");
+                localStorage.removeItem("role");
+                window.location.href = "login.html";
+            }
+        }
+
+        // Theme is applied globally by delivery-shared.js on every page load;
+        // this page just needs to reflect the current state in the toggle.
+        loadSettings();
+    </script>
+</body>
+</html>

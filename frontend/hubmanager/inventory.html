@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock — SYRA Hub Manager</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="../admin/css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+  <aside id="admin-sidebar"></aside>
+  <div class="admin-content">
+    <header id="admin-topbar"></header>
+    <main class="admin-main">
+
+      <p class="form-help" style="margin-bottom: var(--space-3)">
+        SYRA Fresh currently runs a single shared, company-wide product catalog rather than per-hub
+        warehousing, so this is a read-only view of overall stock levels. Stock changes remain
+        Super Admin-only (Products page).
+      </p>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Product</th><th>Category</th><th>Unit</th><th>Price</th><th>Stock</th><th>Status</th></tr></thead>
+          <tbody id="inventory-body"><tr><td colspan="6"><div class="skeleton" style="height:20px"></div></td></tr></tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/hubmanager-api.js"></script>
+<script src="js/hubmanager.js"></script>
+<script>
+function productRowHTML(p) {
+  const low = p.stock > 0 && p.stock <= 10;
+  return `
+    <tr>
+      <td><strong>${hmEscapeHTML(p.name)}</strong></td>
+      <td>${p.category || '—'}</td>
+      <td>${p.unit || '—'}</td>
+      <td>₹${p.price}</td>
+      <td>${p.stock}</td>
+      <td>${p.stock === 0 ? hmStatusBadgeHTML('Out of Stock') : (low ? hmStatusBadgeHTML('Low Stock') : hmStatusBadgeHTML('In Stock'))}</td>
+    </tr>`;
+}
+
+async function loadInventory() {
+  const body = document.getElementById('inventory-body');
+  try {
+    const data = await HubManagerApi.get('/hub-manager/inventory');
+    const products = data.products || [];
+    body.innerHTML = products.length ? products.map(productRowHTML).join('') : `<tr><td colspan="6"><div class="empty-state">No products yet.</div></td></tr>`;
+    body.classList.add('fade-in');
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="6"><div class="empty-state">${e.message}</div></td></tr>`;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (initHubManagerShell('inventory')) loadInventory();
+});
+</script>
+</body>
+</html>

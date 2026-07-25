@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings — SYRA Hub Manager</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="../admin/css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+  <aside id="admin-sidebar"></aside>
+  <div class="admin-content">
+    <header id="admin-topbar"></header>
+    <main class="admin-main">
+
+      <div class="stat-grid" style="grid-template-columns: 1fr 1fr;">
+        <div class="card">
+          <div class="section-title-row"><h2>Profile</h2></div>
+          <div class="form-group"><label>Name</label><input id="st-name"></div>
+          <div class="form-group"><label>Email</label><input id="st-email" disabled style="opacity:0.6"></div>
+          <div class="form-group"><label>Hub</label><input id="st-hub" disabled style="opacity:0.6"></div>
+          <button class="btn btn-primary mt-3" onclick="saveProfile()">Save Profile</button>
+        </div>
+        <div class="card">
+          <div class="section-title-row"><h2>Change Password</h2></div>
+          <div class="form-group"><label>Current Password</label><input type="password" id="st-current-pw"></div>
+          <div class="form-group"><label>New Password</label><input type="password" id="st-new-pw"></div>
+          <div class="form-group"><label>Confirm New Password</label><input type="password" id="st-confirm-pw"></div>
+          <div id="pw-error" class="form-error"></div>
+          <button class="btn btn-outline mt-3" onclick="changePassword()">Update Password</button>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/hubmanager-api.js"></script>
+<script src="js/hubmanager.js"></script>
+<script>
+function fillProfile() {
+  const manager = HubManagerAuth.currentManager() || {};
+  document.getElementById('st-name').value = manager.name || '';
+  document.getElementById('st-email').value = manager.email || '';
+  document.getElementById('st-hub').value = `${manager.hub_name || ''} (${manager.district_name || ''})`;
+}
+
+async function saveProfile() {
+  const name = document.getElementById('st-name').value.trim();
+  if (!name) { hmToast('Name is required'); return; }
+  try {
+    const data = await HubManagerApi.put('/hub-manager/auth/me', { name });
+    localStorage.setItem('syra_hm', JSON.stringify(data.hub_manager));
+    hmToast('Profile updated');
+    initHubManagerShell('settings');
+  } catch (e) { hmToast(e.message); }
+}
+
+async function changePassword() {
+  const errEl = document.getElementById('pw-error');
+  errEl.textContent = '';
+  const current_password = document.getElementById('st-current-pw').value;
+  const new_password = document.getElementById('st-new-pw').value;
+  const confirm_password = document.getElementById('st-confirm-pw').value;
+  try {
+    await HubManagerApi.post('/hub-manager/auth/change-password', { current_password, new_password, confirm_password });
+    hmToast('Password updated successfully');
+    document.getElementById('st-current-pw').value = '';
+    document.getElementById('st-new-pw').value = '';
+    document.getElementById('st-confirm-pw').value = '';
+  } catch (e) { errEl.textContent = e.message; }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (initHubManagerShell('settings')) fillProfile();
+});
+</script>
+</body>
+</html>

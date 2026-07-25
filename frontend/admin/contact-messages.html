@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contact Messages — SYRA Admin</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+  <aside id="admin-sidebar"></aside>
+  <div class="admin-content">
+    <header id="admin-topbar"></header>
+    <main class="admin-main">
+
+      <div class="admin-toolbar">
+        <input type="text" id="search-input" placeholder="🔍 Search by name, email, or phone..." oninput="debouncedSearch()" style="max-width:280px">
+        <select id="status-filter" onchange="loadMessages(1)" style="max-width:160px">
+          <option value="">All Statuses</option>
+          <option value="New">New</option>
+          <option value="Read">Read</option>
+          <option value="Closed">Closed</option>
+        </select>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Topic</th><th>Message</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="messages-body"><tr><td colspan="8"><div class="skeleton" style="height:20px"></div></td></tr></tbody>
+        </table>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;" id="pagination"></div>
+
+    </main>
+  </div>
+</div>
+
+<!-- View Message Modal -->
+<div class="modal-overlay" id="view-modal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Message Detail</h3><button class="modal-close" onclick="closeModal('view-modal')">✕</button></div>
+    <div class="modal-body" id="view-modal-body"></div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('view-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/admin-api.js"></script>
+<script src="js/admin.js"></script>
+<script>
+let currentPage = 1;
+let messagesCache = [];
+let searchDebounceTimer = null;
+
+function debouncedSearch() {
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(() => loadMessages(1), 350);
+}
+
+function truncate(text, n) {
+  if (!text) return '';
+  return text.length > n ? `${text.slice(0, n)}…` : text;
+}
+
+function messageRowHTML(m) {
+  return `
+    <tr>
+      <td><strong>${escapeHTML(m.name)}</strong></td>
+      <td>${m.email}</td>
+      <td>${m.phone}</td>
+      <td>${escapeHTML(m.topic)}</td>
+      <td title="${escapeHTML(m.message)}">${escapeHTML(truncate(m.message, 40))}</td>
+      <td>${new Date(m.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+      <td>${statusBadgeHTML(m.status)}</td>
+      <td>
+        <div class="row-actions">
+          <button class="btn-icon" title="View" onclick="viewMessage('${m.id}')">👁️</button>
+          ${m.status === 'New' ? `<button class="btn-icon" title="Mark as Read" onclick="updateStatus('${m.id}', 'Read')">✅</button>` : ''}
+          ${m.status !== 'Closed' ? `<button class="btn-icon" title="Close" onclick="updateStatus('${m.id}', 'Closed')">🔒</button>` : ''}
+          <button class="btn-icon danger" title="Delete" onclick="deleteMessage('${m.id}')">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+}
+
+async function loadMessages(page = 1) {
+  currentPage = page;
+  const body = document.getElementById('messages-body');
+  const params = new URLSearchParams({ page, limit: 10 });
+  const search = document.getElementById('search-input').value.trim();
+  const status = document.getElementById('status-filter').value;
+  if (search) params.set('search', search);
+  if (status) params.set('status', status);
+
+  try {
+    const data = await AdminApi.get(`/admin/contact-messages?${params.toString()}`);
+    messagesCache = data.messages || [];
+    body.innerHTML = messagesCache.length ? messagesCache.map(messageRowHTML).join('') : `<tr><td colspan="8"><div class="empty-state">No contact messages match these filters.</div></td></tr>`;
+    body.classList.add('fade-in');
+    renderPagination(data.pagination || {});
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="8"><div class="empty-state">${e.message}</div></td></tr>`;
+  }
+}
+
+function renderPagination(p) {
+  const container = document.getElementById('pagination');
+  if (!p.pages || p.pages <= 1) { container.innerHTML = ''; return; }
+  let html = '';
+  for (let i = 1; i <= p.pages; i++) {
+    html += `<button onclick="loadMessages(${i})" style="${i === currentPage ? 'background: var(--color-forest); color: white;' : ''} padding: 8px 12px; border: 1px solid var(--color-border); cursor: pointer;">${i}</button>`;
+  }
+  container.innerHTML = html;
+}
+
+function viewMessage(id) {
+  const m = messagesCache.find((x) => x.id === id);
+  if (!m) return;
+  document.getElementById('view-modal-body').innerHTML = `
+    <div class="form-group"><label>Name</label><p>${escapeHTML(m.name)}</p></div>
+    <div class="form-group"><label>Email</label><p>${m.email}</p></div>
+    <div class="form-group"><label>Phone</label><p>${m.phone}</p></div>
+    <div class="form-group"><label>Topic</label><p>${escapeHTML(m.topic)}</p></div>
+    <div class="form-group"><label>Message</label><p style="white-space:pre-wrap">${escapeHTML(m.message)}</p></div>
+    <div class="form-group"><label>Received</label><p>${new Date(m.created_at).toLocaleString('en-IN')}</p></div>
+    <div class="form-group"><label>Status</label><p>${statusBadgeHTML(m.status)}</p></div>
+  `;
+  openModal('view-modal');
+}
+
+async function updateStatus(id, status) {
+  try {
+    await AdminApi.put(`/admin/contact-messages/${id}/status`, { status });
+    adminToast(`Marked as ${status}`);
+    loadMessages(currentPage);
+  } catch (e) { adminToast(e.message); }
+}
+
+async function deleteMessage(id) {
+  if (!confirm('Delete this message permanently?')) return;
+  try {
+    await AdminApi.del(`/admin/contact-messages/${id}`);
+    adminToast('Message deleted');
+    loadMessages(currentPage);
+  } catch (e) { adminToast(e.message); }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (initAdminShell('contact-messages')) loadMessages();
+});
+</script>
+</body>
+</html>

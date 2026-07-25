@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Orders — SYRA Fresh</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<meta name="description" content="View your SYRA Fresh order history and track deliveries.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/pages.css">
+</head>
+<body>
+
+<div id="site-header-root"></div>
+
+<main class="container section">
+  <div class="breadcrumb"><a href="/index.html">Home</a><span>/</span><a href="/pages/profile.html">My Account</a><span>/</span><span aria-current="page">Orders</span></div>
+  <div class="page-header"><h1>My Orders</h1><p>Track current orders and browse your order history.</p></div>
+
+  <div class="faq-tabs" id="status-filter">
+    <button class="active" data-status="">All Orders</button>
+    <button data-status="Placed">Placed</button>
+    <button data-status="Confirmed">Confirmed</button>
+    <button data-status="Shipped">Shipped</button>
+    <button data-status="Delivered">Delivered</button>
+    <button data-status="Cancelled">Cancelled</button>
+  </div>
+
+  <div id="orders-root">
+    <div class="skeleton" style="height:140px; margin-bottom:12px"></div>
+    <div class="skeleton" style="height:140px; margin-bottom:12px"></div>
+    <div class="skeleton" style="height:140px"></div>
+  </div>
+</main>
+
+<div id="site-footer-root"></div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/cart.js"></script>
+<script src="../js/layout.js"></script>
+<script src="../js/pages.js"></script>
+<script>
+let allOrders = [];
+
+function orderCardHTML(o) {
+  const firstItems = o.items.slice(0, 4);
+  return `
+    <div class="order-card fade-in">
+      <div class="order-card-head">
+        <div>
+          <h4>#${o.order_number}</h4>
+          <span>Placed on ${formatDate(o.created_at)} · ${o.items.length} item${o.items.length === 1 ? '' : 's'}</span>
+        </div>
+        ${statusBadgeHTML(o.status)}
+      </div>
+      <div class="order-items-mini">
+        ${firstItems.map((it) => `<img src="${resolveImage(it.image)}" alt="${it.name}" title="${it.name}">`).join('')}
+        ${o.items.length > 4 ? `<div style="width:56px;height:56px;border-radius:var(--radius-sm);background:var(--color-surface-alt);display:flex;align-items:center;justify-content:center;font-size:var(--fs-xs);font-weight:700;color:var(--color-ink-soft);flex-shrink:0">+${o.items.length - 4}</div>` : ''}
+      </div>
+      <div class="order-card-footer">
+        <strong>₹${o.totals ? o.totals.total : ''}</strong>
+        <div style="display:flex; gap:10px">
+          <a class="btn btn-outline btn-sm" href="/pages/order-tracking.html?id=${o.id}">Track Order</a>
+          ${o.status === 'Placed' || o.status === 'Confirmed' || o.status === 'Packed' ? `<button class="btn btn-sm" style="color:var(--color-berry); border:1.5px solid var(--color-berry)" onclick="cancelOrder('${o.id}')">Cancel</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderOrders(status) {
+  const root = document.getElementById('orders-root');
+  const filtered = status ? allOrders.filter((o) => o.status === status) : allOrders;
+  if (!filtered.length) {
+    root.innerHTML = `<div class="empty-state"><div class="icon">📦</div><p>${status ? `No ${status.toLowerCase()} orders.` : "You haven't placed any orders yet."}</p>
+      <a href="/pages/shop.html" class="btn btn-primary mt-4">Start Shopping</a></div>`;
+    return;
+  }
+  root.innerHTML = filtered.map(orderCardHTML).join('');
+}
+
+async function loadOrders() {
+  if (!Auth.requireLogin('/pages/login.html')) return;
+  const root = document.getElementById('orders-root');
+  try {
+    const data = await Api.get('/orders', true);
+    allOrders = data.orders || [];
+
+    const placed = new URLSearchParams(window.location.search).get('placed');
+    if (placed) showToast(`Order placed successfully! 🎉`);
+
+    renderOrders('');
+  } catch (e) {
+    root.innerHTML = `<div class="empty-state"><p>${e.message}</p></div>`;
+  }
+}
+
+async function cancelOrder(id) {
+  if (!confirm('Cancel this order? This cannot be undone.')) return;
+  try {
+    await Api.post(`/orders/${id}/cancel`, {}, true);
+    showToast('Order cancelled');
+    loadOrders();
+  } catch (e) { showToast(e.message); }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initLayout('');
+  loadOrders();
+  document.getElementById('status-filter').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    document.querySelectorAll('#status-filter button').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderOrders(btn.dataset.status);
+  });
+});
+</script>
+</body>
+</html>

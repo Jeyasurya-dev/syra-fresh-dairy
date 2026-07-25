@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delivery History - SYRA Fresh</title>
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/theme.css">
+    <style>
+        .container { max-width: 900px; margin: 20px auto; padding: 20px; }
+        .back-link { display: inline-flex; align-items: center; gap: 5px; color: var(--color-forest); text-decoration: none; margin-bottom: 20px; }
+        .filters { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .filter-btn { padding: 8px 16px; border: 2px solid var(--color-border); background: transparent; color: var(--color-ink); border-radius: 20px; cursor: pointer; font-size: 14px; }
+        .filter-btn.active { background: var(--color-forest); color: white; border-color: var(--color-forest); }
+        .history-card { background: var(--color-surface); padding: 15px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .history-info { flex: 1; }
+        .order-number { font-weight: 600; color: var(--color-ink); }
+        .delivered-date { font-size: 12px; color: var(--color-ink-soft); margin-top: 5px; }
+        .cod-amount { font-weight: 600; color: var(--color-forest); }
+        .empty-state { text-align: center; padding: 60px 20px; color: var(--color-ink-soft); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="dashboard.html" class="back-link">← Back to Dashboard</a>
+        <h1>📋 Delivery History</h1>
+        
+        <div class="filters" id="filters"></div>
+        <div id="historyContainer"></div>
+    </div>
+    
+    <script src="delivery-shared.js"></script>
+    <script>
+        const API_URL = "http://localhost:5000/api/delivery";
+        
+        async function loadHistory(status = null) {
+            const token = localStorage.getItem("delivery_token");
+            
+            let url = `${API_URL}/history?limit=50`;
+            if (status) url += `&status=${status}`;
+            
+            try {
+                const response = await fetch(url, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderHistory(data.history);
+                }
+            } catch (error) {
+                console.error("Error:", error);
+            }
+        }
+        
+        function renderHistory(history) {
+            const container = document.getElementById("historyContainer");
+            
+            if (!history || history.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No delivery history yet</p></div>';
+                return;
+            }
+            
+            let html = '';
+            history.forEach(item => {
+                html += `
+                    <div class="history-card">
+                        <div class="history-info">
+                            <div class="order-number">${item.order_number}</div>
+                            <div class="delivered-date">${new Date(item.delivered_at).toLocaleString()}</div>
+                        </div>
+                        <div class="cod-amount">₹${item.cod_collected.toFixed(2)}</div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function renderFilters() {
+            const filters = document.getElementById("filters");
+            filters.innerHTML = `
+                <button class="filter-btn active" onclick="loadHistory(null)">All</button>
+                <button class="filter-btn" onclick="loadHistory('delivered')">Delivered</button>
+                <button class="filter-btn" onclick="loadHistory('failed')">Failed</button>
+            `;
+        }
+        
+        renderDeliveryNav('history.html');
+        renderFilters();
+        loadHistory();
+    </script>
+</body>
+</html>

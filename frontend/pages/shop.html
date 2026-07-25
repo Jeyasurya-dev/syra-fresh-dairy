@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shop All Products — SYRA Fresh</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  .shop-layout { display: grid; grid-template-columns: 260px 1fr; gap: var(--space-5); align-items: start; }
+  .filter-panel { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4); position: sticky; top: 110px; }
+  .filter-panel h4 { font-family: var(--font-display); margin-bottom: var(--space-3); }
+  .filter-group { margin-bottom: var(--space-4); }
+  .filter-group label { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); margin-bottom: 8px; cursor: pointer; }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); flex-wrap: wrap; gap: 10px; }
+  .toolbar select { padding: 0.6rem 1rem; border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); }
+  @media (max-width: 900px) { .shop-layout { grid-template-columns: 1fr; } .filter-panel { position: static; } }
+</style>
+</head>
+<body>
+
+<div id="site-header-root"></div>
+
+<main class="container section">
+  <div class="shop-layout">
+    <aside class="filter-panel">
+      <h4>Category</h4>
+      <div class="filter-group" id="category-filters">
+        <label><input type="radio" name="cat" value=""> All Products</label>
+        <label><input type="radio" name="cat" value="dairy-products"> Dairy Products</label>
+        <label><input type="radio" name="cat" value="ice-cream"> Ice Cream</label>
+        <label><input type="radio" name="cat" value="healthy-snacks"> Healthy Snacks</label>
+        <label><input type="radio" name="cat" value="fresh-fruits"> Fresh Fruits</label>
+      </div>
+      <h4>Price Range</h4>
+      <div class="filter-group">
+        <label><input type="radio" name="price" value=""> Any price</label>
+        <label><input type="radio" name="price" value="0-50"> Under ₹50</label>
+        <label><input type="radio" name="price" value="50-150"> ₹50 – ₹150</label>
+        <label><input type="radio" name="price" value="150-300"> ₹150 – ₹300</label>
+        <label><input type="radio" name="price" value="300-9999"> ₹300+</label>
+      </div>
+      <button class="btn btn-outline btn-block btn-sm" onclick="applyFilters()">Apply Filters</button>
+    </aside>
+
+    <div>
+      <div class="toolbar">
+        <span id="result-count" style="color:var(--color-ink-soft); font-size:var(--fs-sm)">Loading products…</span>
+        <select id="sort-select" onchange="applyFilters()">
+          <option value="newest">Newest</option>
+          <option value="price_low">Price: Low to High</option>
+          <option value="price_high">Price: High to Low</option>
+          <option value="rating">Top Rated</option>
+        </select>
+      </div>
+      <div class="product-grid" id="shop-grid"></div>
+      <div id="pagination" style="display:flex; gap:8px; justify-content:center; margin-top:var(--space-5)"></div>
+    </div>
+  </div>
+</main>
+
+<div id="site-footer-root"></div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/cart.js"></script>
+<script src="../js/layout.js"></script>
+<script>
+function starString(rating) { const full = Math.round(rating); return '★'.repeat(full) + '☆'.repeat(5 - full); }
+function resolveImage(p) {
+  if (!p) return 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=400&q=80';
+  if (p.startsWith('http')) return p;
+  return `${(window.SYRA_API_BASE || 'http://localhost:5000/api').replace('/api','')}${p}`;
+}
+function productCardHTML(p) {
+  const image = (p.images && p.images[0]) ? resolveImage(p.images[0]) : 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=400&q=80';
+  const tag = p.discount_percent >= 15 ? `<span class="product-tag tag-berry">${p.discount_percent}% OFF</span>` : (p.is_bestseller ? `<span class="product-tag">Bestseller</span>` : '');
+  return `<article class="product-card">
+    <div class="product-media">
+      <a href="/pages/product-details.html?slug=${p.slug}"><img src="${image}" alt="${p.name}" loading="lazy"></a>
+      ${tag}
+      <button class="wishlist-btn" onclick="Wishlist.toggle('${p.id}', this)" aria-label="Save to wishlist">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+      </button>
+    </div>
+    <div class="product-info">
+      <span class="product-cat">${(p.category||'').replace('-',' ')}</span>
+      <h3 class="product-name">${p.name}</h3>
+      <span class="product-unit">${p.unit||''}</span>
+      <div class="product-rating"><span class="stars">${starString(p.rating_avg||4.5)}</span><span>(${p.rating_count||0})</span></div>
+      <div class="product-footer">
+        <div class="price-row"><span class="price-current">₹${p.price}</span>${p.mrp>p.price?`<span class="price-mrp">₹${p.mrp}</span>`:''}</div>
+        <button class="add-btn" onclick="Cart.add('${p.id}')" aria-label="Add to cart">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+      </div>
+    </div>
+  </article>`;
+}
+
+let currentPage = 1;
+
+function paramsFromUrl() {
+  return new URLSearchParams(window.location.search);
+}
+
+async function loadProducts(page = 1) {
+  currentPage = page;
+  const grid = document.getElementById('shop-grid');
+  const countEl = document.getElementById('result-count');
+  grid.innerHTML = Array(8).fill('<div class="skeleton" style="height:300px"></div>').join('');
+
+  const params = new URLSearchParams();
+  const url = paramsFromUrl();
+  const q = url.get('q'); if (q) params.set('q', q);
+  const category = document.querySelector('input[name="cat"]:checked')?.value || url.get('category');
+  if (category) params.set('category', category);
+  const priceRange = document.querySelector('input[name="price"]:checked')?.value;
+  if (priceRange) { const [min, max] = priceRange.split('-'); params.set('min_price', min); params.set('max_price', max); }
+  params.set('sort', document.getElementById('sort-select').value);
+  params.set('page', page);
+  params.set('page_size', 12);
+
+  try {
+    const data = await Api.get(`/products?${params.toString()}`);
+    grid.innerHTML = data.products.map(productCardHTML).join('') || `<div class="empty-state"><div class="icon">🔍</div><p>No products match your filters.</p></div>`;
+    countEl.textContent = `${data.pagination.total} products found`;
+    renderPagination(data.pagination);
+  } catch (e) {
+    grid.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>Could not load products. Is the SYRA Fresh API running?</p></div>`;
+    countEl.textContent = '';
+  }
+}
+
+function renderPagination(pagination) {
+  const el = document.getElementById('pagination');
+  const totalPages = pagination.total_pages || Math.ceil(pagination.total / pagination.page_size) || 1;
+  let html = '';
+  for (let i = 1; i <= totalPages; i++) {
+    html += `<button class="btn btn-sm ${i === pagination.page ? 'btn-primary' : 'btn-outline'}" onclick="loadProducts(${i})">${i}</button>`;
+  }
+  el.innerHTML = html;
+}
+
+function applyFilters() { loadProducts(1); }
+
+document.addEventListener('DOMContentLoaded', () => {
+  initLayout('products');
+  const url = paramsFromUrl();
+  if (url.get('category')) {
+    const radio = document.querySelector(`input[name="cat"][value="${url.get('category')}"]`);
+    if (radio) radio.checked = true;
+  }
+  if (url.get('sort')) document.getElementById('sort-select').value = url.get('sort');
+  if (url.get('q')) document.getElementById('search-input').value = url.get('q');
+
+  loadProducts(1);
+});
+</script>
+</body>
+</html>

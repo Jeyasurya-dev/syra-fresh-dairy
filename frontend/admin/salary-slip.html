@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Salary Slip — SYRA Fresh</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<style>
+  body { background: #f2f2f2; padding: 30px; font-family: var(--font-body); }
+  .slip { max-width: 700px; margin: 0 auto; background: #fff; padding: 40px; border-radius: 10px; box-shadow: var(--shadow-md); }
+  .slip-header { display:flex; justify-content: space-between; align-items:flex-start; border-bottom: 2px solid var(--color-forest); padding-bottom: 16px; margin-bottom: 20px; }
+  .slip-header h1 { font-family: var(--font-display); color: var(--color-forest); margin: 0; font-size: 22px; }
+  .slip-header .meta { text-align: right; font-size: 13px; color: var(--color-ink-soft); }
+  .slip-section { margin-bottom: 20px; }
+  .slip-section h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .5px; color: var(--color-ink-soft); margin-bottom: 8px; }
+  .kv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; font-size: 14px; }
+  table.slip-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.slip-table td { padding: 8px 0; border-bottom: 1px solid #eee; }
+  table.slip-table td:last-child { text-align: right; }
+  .total-row td { font-weight: 700; font-size: 16px; border-top: 2px solid var(--color-forest); border-bottom: none; padding-top: 12px; }
+  .paid-stamp { display:inline-block; padding: 4px 14px; border-radius: 20px; font-weight:700; font-size:13px; }
+  .paid-stamp.paid { background:#d4edda; color:#155724; }
+  .paid-stamp.pending { background:#fff3cd; color:#856404; }
+  .print-btn { max-width: 700px; margin: 0 auto 16px; display:flex; justify-content:flex-end; }
+  @media print { .print-btn { display:none; } body { background:#fff; padding:0; } .slip { box-shadow:none; } }
+</style>
+</head>
+<body>
+
+<div class="print-btn" style="gap:10px;">
+  <button class="btn btn-outline" id="download-pdf-btn" onclick="downloadPdf()" disabled>⬇️ Download PDF</button>
+  <button class="btn btn-primary" onclick="window.print()">🖨️ Print / Save as PDF</button>
+</div>
+
+<div class="slip" id="slip">Loading slip...</div>
+
+<script>
+function getApiToken() {
+  return localStorage.getItem('syra_admin_token') || localStorage.getItem('syra_hm_token') || localStorage.getItem('delivery_token');
+}
+function getApiBase() {
+  return window.SYRA_API_BASE || 'http://localhost:5000/api';
+}
+
+let loadedSlipPath = null;
+let loadedSlipNumber = null;
+
+async function loadSlip() {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get('id');
+  const el = document.getElementById('slip');
+  if (!id) { el.innerHTML = '<p>No slip ID given.</p>'; return; }
+
+  // Try the admin endpoint first, then fall back to the delivery/hub-manager
+  // self-service endpoints, so this one page works for whichever role
+  // opened it (each API scopes to "your own slip only" already).
+  const token = getApiToken();
+  const base = getApiBase();
+  const endpoints = [`/admin/salary/transactions/${id}`, `/delivery/salary/${id}`, `/hub-manager/salary/${id}`];
+  let txn = null, lastError = null;
+  for (const path of endpoints) {
+    try {
+      const res = await fetch(`${base}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (res.ok && data.transaction) { txn = data.transaction; loadedSlipPath = path; loadedSlipNumber = data.transaction.slip_number; break; }
+      lastError = data.message;
+    } catch (e) { lastError = e.message; }
+  }
+
+  if (!txn) { el.innerHTML = `<p>Could not load this slip. ${lastError || ''}</p>`; return; }
+
+  const downloadBtn = document.getElementById('download-pdf-btn');
+  downloadBtn.disabled = false;
+
+  const b = txn.breakdown;
+  el.innerHTML = `
+    <div class="slip-header">
+      <div><h1>🥬 SYRA Fresh</h1><div style="font-size:13px;color:var(--color-ink-soft)">Salary Slip</div></div>
+      <div class="meta">
+        Slip #${txn.slip_number}<br>
+        Month: ${txn.month}<br>
+        <span class="paid-stamp ${txn.status}">${txn.status === 'paid' ? 'PAID' : 'PENDING'}</span>
+      </div>
+    </div>
+
+    <div class="slip-section">
+      <h3>Employee</h3>
+      <div class="kv-grid">
+        <div><strong>${txn.person_name}</strong></div>
+        <div>${txn.person_type === 'hub_manager' ? 'Hub Manager' : 'Delivery Boy'}</div>
+        <div>${txn.hub_name || '—'}</div>
+        <div></div>
+      </div>
+    </div>
+
+    <div class="slip-section">
+      <h3>Attendance This Month</h3>
+      <div class="kv-grid">
+        <div>Present: ${b.attendance_present_days} day(s)</div>
+        <div>Half Day: ${b.attendance_half_days} day(s)</div>
+        <div>Absent: ${b.attendance_absent_days} day(s)</div>
+        <div>${b.orders_delivered !== undefined ? `Orders Delivered: ${b.orders_delivered}` : ''}</div>
+      </div>
+    </div>
+
+    <div class="slip-section">
+      <h3>Earnings</h3>
+      <table class="slip-table">
+        <tr><td>Monthly Salary</td><td>₹${b.monthly_salary.toFixed(2)}</td></tr>
+        <tr><td>Per-Order Incentive (${b.orders_delivered} × ₹${b.per_order_incentive_rate})</td><td>₹${b.per_order_incentive_total.toFixed(2)}</td></tr>
+        <tr><td>Fuel Allowance</td><td>₹${b.fuel_allowance.toFixed(2)}</td></tr>
+        <tr><td>Bonus</td><td>₹${(b.bonus || 0).toFixed(2)}</td></tr>
+        <tr><td><strong>Gross Earnings</strong></td><td><strong>₹${txn.gross_earnings.toFixed(2)}</strong></td></tr>
+      </table>
+    </div>
+
+    <div class="slip-section">
+      <h3>Deductions</h3>
+      <table class="slip-table">
+        <tr><td>Attendance Deduction (absences/half-days)</td><td>−₹${b.attendance_deduction.toFixed(2)}</td></tr>
+        <tr><td>Other Deductions</td><td>−₹${(b.other_deductions || 0).toFixed(2)}</td></tr>
+        <tr><td>Fine ${b.fine_reason ? `(${b.fine_reason})` : ''}</td><td>−₹${(b.fine || 0).toFixed(2)}</td></tr>
+        <tr><td><strong>Total Deductions</strong></td><td><strong>−₹${txn.total_deductions.toFixed(2)}</strong></td></tr>
+      </table>
+    </div>
+
+    <table class="slip-table">
+      <tr class="total-row"><td>Net Pay</td><td>₹${txn.net_pay.toFixed(2)}</td></tr>
+    </table>
+
+    ${txn.status === 'paid' ? `<p style="margin-top:16px;font-size:13px;color:var(--color-ink-soft)">Paid on ${new Date(txn.paid_at).toLocaleDateString('en-IN')}${txn.payment_reference ? ` — Ref: ${txn.payment_reference}` : ''}</p>` : ''}
+  `;
+}
+
+loadSlip();
+
+async function downloadPdf() {
+  if (!loadedSlipPath) return;
+  try {
+    const res = await fetch(`${getApiBase()}${loadedSlipPath}/pdf`, {
+      headers: { Authorization: `Bearer ${getApiToken()}` },
+    });
+    if (!res.ok) throw new Error('Could not generate the PDF');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `salary-slip-${loadedSlipNumber || 'download'}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert(e.message);
+  }
+}
+</script>
+</body>
+</html>

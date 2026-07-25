@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Earnings - SYRA Fresh Delivery</title>
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/theme.css">
+    <style>
+        body { background: var(--color-bg); color: var(--color-ink); }
+        .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+        .back-link { display: inline-flex; align-items: center; gap: 5px; color: var(--color-forest); text-decoration: none; margin-bottom: 20px; font-size: 14px; }
+        .page-title { font-size: 24px; font-weight: 700; margin-bottom: 24px; }
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 28px; }
+        .stat-card { background: var(--color-surface); padding: 20px; border-radius: 12px; box-shadow: var(--shadow-sm); border-top: 3px solid var(--color-forest); }
+        .stat-card.green { border-top-color: #28a745; }
+        .stat-card.orange { border-top-color: #fd7e14; }
+        .stat-card.blue { border-top-color: #007bff; }
+        .stat-label { font-size: 12px; color: var(--color-ink-soft); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+        .stat-value { font-size: 28px; font-weight: 700; color: var(--color-ink); }
+        .section-title { font-size: 18px; font-weight: 600; color: var(--color-ink); margin-bottom: 16px; }
+        .period-tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+        .period-tab { padding: 8px 16px; border: 2px solid var(--color-border); background: transparent; color: var(--color-ink); border-radius: 20px; cursor: pointer; font-size: 14px; transition: all .3s; }
+        .period-tab.active { background: var(--color-forest); color: white; border-color: var(--color-forest); }
+        .earnings-table { width: 100%; border-collapse: collapse; background: var(--color-surface); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow-sm); }
+        .earnings-table th { background: var(--color-surface); padding: 14px 16px; text-align: left; font-weight: 600; color: var(--color-ink); border-bottom: 2px solid var(--color-border); font-size: 13px; }
+        .earnings-table td { padding: 14px 16px; border-bottom: 1px solid var(--color-border); color: var(--color-ink); font-size: 14px; }
+        .earnings-table tr:last-child td { border-bottom: none; }
+        .amount-positive { color: #28a745; font-weight: 600; }
+        .status-paid { display: inline-block; padding: 4px 10px; background: #d4edda; color: #155724; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .status-pending { display: inline-block; padding: 4px 10px; background: #fff3cd; color: #856404; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .empty-state { text-align: center; padding: 60px 20px; color: var(--color-ink-soft); background: var(--color-surface); border-radius: 8px; }
+        .upi-card { background: var(--color-surface); padding: 20px; border-radius: 12px; box-shadow: var(--shadow-sm); margin-bottom: 28px; }
+        .upi-title { font-weight: 600; margin-bottom: 12px; font-size: 15px; }
+        .upi-info { display: flex; align-items: center; gap: 12px; }
+        .upi-id-box { flex: 1; padding: 10px 14px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-bg); font-size: 14px; color: var(--color-ink); }
+        .btn-copy { padding: 10px 16px; background: var(--color-forest); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; white-space: nowrap; }
+        .note-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 14px; border-radius: 4px; font-size: 13px; color: #856404; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="dashboard.html" class="back-link">← Back to Dashboard</a>
+        <div class="page-title">💰 My Earnings</div>
+
+        <div class="stat-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Earnings</div>
+                <div class="stat-value" id="totalEarnings">₹0</div>
+            </div>
+            <div class="stat-card green">
+                <div class="stat-label">This Month</div>
+                <div class="stat-value" id="monthlyEarnings">₹0</div>
+            </div>
+            <div class="stat-card orange">
+                <div class="stat-label">COD Pending</div>
+                <div class="stat-value" id="codPending">₹0</div>
+            </div>
+            <div class="stat-card blue">
+                <div class="stat-label">Total Deliveries</div>
+                <div class="stat-value" id="totalDeliveries">0</div>
+            </div>
+        </div>
+
+        <div class="upi-card">
+            <div class="upi-title">💳 Payment Details</div>
+            <div class="upi-info">
+                <div class="upi-id-box" id="upiDisplay">Not set</div>
+                <button class="btn-copy" onclick="window.location.href='profile.html'">Edit UPI</button>
+            </div>
+        </div>
+
+        <div class="section-title">Delivery Earnings History</div>
+        <div class="period-tabs">
+            <button class="period-tab active" onclick="changePeriod('all', this)">All Time</button>
+            <button class="period-tab" onclick="changePeriod('today', this)">Today</button>
+            <button class="period-tab" onclick="changePeriod('week', this)">This Week</button>
+            <button class="period-tab" onclick="changePeriod('month', this)">This Month</button>
+        </div>
+
+        <table class="earnings-table" id="earningsTable">
+            <thead>
+                <tr>
+                    <th>Order</th>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="earningsBody">
+                <tr><td colspan="5" style="text-align:center;padding:30px;color:var(--color-ink-soft);">Loading...</td></tr>
+            </tbody>
+        </table>
+
+        <div class="note-box">
+            <strong>Note:</strong> Earnings are credited to your UPI/Bank account within 24–48 hours after delivery confirmation. COD amounts must be submitted to the warehouse within 24 hours of collection.
+        </div>
+    </div>
+
+    <script src="delivery-shared.js"></script>
+    <script>
+        const API_URL = "http://localhost:5000/api/delivery";
+        let currentPeriod = "all";
+
+        async function loadEarnings() {
+            const token = localStorage.getItem("delivery_token");
+            if (!token) { window.location.href = "login.html"; return; }
+
+            try {
+                // Load profile for earnings
+                const profileRes = await fetch(`${API_URL}/auth/me`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const profileData = await profileRes.json();
+                if (profileData.success) {
+                    const db = profileData.delivery_boy;
+                    document.getElementById("totalEarnings").textContent = `₹${db.total_earnings.toFixed(2)}`;
+                    document.getElementById("totalDeliveries").textContent = db.total_deliveries;
+                    document.getElementById("upiDisplay").textContent = db.upi_id || "Not set";
+                }
+
+                // Load dashboard for COD
+                const dashRes = await fetch(`${API_URL}/dashboard`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const dashData = await dashRes.json();
+                if (dashData.success) {
+                    document.getElementById("codPending").textContent = `₹${(dashData.dashboard.cod_pending || 0).toFixed(2)}`;
+                }
+
+                // Load delivery history
+                loadHistory(currentPeriod);
+            } catch (err) {
+                console.error("Error:", err);
+            }
+        }
+
+        async function loadHistory(period) {
+            const token = localStorage.getItem("delivery_token");
+            const tbody = document.getElementById("earningsBody");
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--color-ink-soft);">Loading...</td></tr>`;
+
+            try {
+                const res = await fetch(`${API_URL}/history?limit=50&status=delivered`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const data = await res.json();
+
+                if (!data.success || data.history.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="empty-state" style="text-align:center;padding:30px;color:var(--color-ink-soft);">No delivery records found</td></tr>`;
+                    return;
+                }
+
+                let filtered = data.history;
+                const now = new Date();
+
+                if (period === "today") {
+                    filtered = data.history.filter(h => {
+                        if (!h.delivered_at) return false;
+                        const d = new Date(h.delivered_at);
+                        return d.toDateString() === now.toDateString();
+                    });
+                } else if (period === "week") {
+                    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    filtered = data.history.filter(h => h.delivered_at && new Date(h.delivered_at) >= weekAgo);
+                } else if (period === "month") {
+                    filtered = data.history.filter(h => {
+                        if (!h.delivered_at) return false;
+                        const d = new Date(h.delivered_at);
+                        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                    });
+                }
+
+                // Calculate monthly earnings
+                const monthlyTotal = data.history.filter(h => {
+                    if (!h.delivered_at) return false;
+                    const d = new Date(h.delivered_at);
+                    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                }).reduce((sum, h) => sum + (h.cod_collected || 0), 0);
+                document.getElementById("monthlyEarnings").textContent = `₹${monthlyTotal.toFixed(2)}`;
+
+                if (filtered.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--color-ink-soft);">No records for this period</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = filtered.map(h => `
+                    <tr>
+                        <td><strong>${h.order_number || "N/A"}</strong></td>
+                        <td>${h.delivered_at ? new Date(h.delivered_at).toLocaleDateString("en-IN") : "—"}</td>
+                        <td>Delivery Fee</td>
+                        <td class="amount-positive">₹${(h.cod_collected || 0).toFixed(2)}</td>
+                        <td><span class="status-paid">Completed</span></td>
+                    </tr>
+                `).join("");
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px;color:#dc3545;">Error loading data</td></tr>`;
+            }
+        }
+
+        function changePeriod(period, btn) {
+            currentPeriod = period;
+            document.querySelectorAll(".period-tab").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            loadHistory(period);
+        }
+
+        renderDeliveryNav('earnings.html');
+        loadEarnings();
+    </script>
+</body>
+</html>

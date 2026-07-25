@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shop by Category — SYRA Fresh</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<meta name="description" content="Browse SYRA Fresh's full range: Dairy Products, Ice Cream, Healthy Snacks and Fresh Fruits.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/pages.css">
+</head>
+<body>
+
+<div id="site-header-root"></div>
+
+<main class="container section">
+  <div class="breadcrumb"><a href="/index.html">Home</a><span>/</span><span aria-current="page">Categories</span></div>
+  <div class="page-header">
+    <h1>Shop by Category</h1>
+    <p>Four farm-fresh worlds, one daily delivery. Tap a category to browse everything inside it, or jump straight to a subcategory.</p>
+  </div>
+  <div id="category-hero-grid" class="category-hero-grid">
+    <div class="skeleton" style="height:220px; border-radius:var(--radius-lg)"></div>
+    <div class="skeleton" style="height:220px; border-radius:var(--radius-lg)"></div>
+    <div class="skeleton" style="height:220px; border-radius:var(--radius-lg)"></div>
+    <div class="skeleton" style="height:220px; border-radius:var(--radius-lg)"></div>
+  </div>
+</main>
+
+<div id="site-footer-root"></div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/cart.js"></script>
+<script src="../js/layout.js"></script>
+<script src="../js/pages.js"></script>
+<script>
+const CATEGORY_HERO_IMAGES = {
+  'dairy-products': 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=800&q=80',
+  'ice-cream': 'https://images.unsplash.com/photo-1497034825429-c343d7c6a68f?w=800&q=80',
+  'healthy-snacks': 'https://images.unsplash.com/photo-1599599810769-bcde5a160d32?w=800&q=80',
+  'fresh-fruits': 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=800&q=80',
+};
+
+const DEMO_CATEGORY_FALLBACK = [
+  { id: 'dairy-products', name: 'Dairy Products', slug: 'dairy-products', icon: '🥛', subcategories: ['Milk', 'Curd', 'Paneer', 'Cheese', 'Ghee', 'Butter'] },
+  { id: 'ice-cream', name: 'Ice Cream', slug: 'ice-cream', icon: '🍦', subcategories: ['Vanilla', 'Chocolate', 'Kulfi', 'Family Pack', 'Cone', 'Sundae'] },
+  { id: 'healthy-snacks', name: 'Healthy Snacks', slug: 'healthy-snacks', icon: '🥜', subcategories: ['Almonds', 'Granola', 'Dates', 'Protein Bars', 'Oats'] },
+  { id: 'fresh-fruits', name: 'Fresh Fruits', slug: 'fresh-fruits', icon: '🍎', subcategories: ['Mango', 'Banana', 'Apple', 'Grapes', 'Pomegranate'] },
+];
+
+function categoryHeroCardHTML(c) {
+  const image = CATEGORY_HERO_IMAGES[c.slug] || CATEGORY_HERO_IMAGES['fresh-fruits'];
+  const subs = (c.subcategories || []).slice(0, 5);
+  return `
+    <div>
+      <a class="category-hero-card" href="/pages/shop.html?category=${c.slug}">
+        <img src="${image}" alt="${c.name}" loading="lazy">
+        <div>
+          <h3>${c.icon || '🛒'} ${c.name}</h3>
+          <p>Shop all ${c.name.toLowerCase()} →</p>
+        </div>
+      </a>
+      <div class="subcat-chip-row" style="margin-top:12px">
+        ${subs.map((s) => `<a class="chip" href="/pages/shop.html?category=${c.slug}&subcategory=${encodeURIComponent(s)}">${s}</a>`).join('')}
+      </div>
+    </div>`;
+}
+
+async function loadCategoryHero() {
+  const el = document.getElementById('category-hero-grid');
+  try {
+    const data = await Api.get('/categories');
+    const cats = (data.categories && data.categories.length) ? data.categories : DEMO_CATEGORY_FALLBACK;
+    el.innerHTML = cats.map(categoryHeroCardHTML).join('');
+  } catch (e) {
+    el.innerHTML = DEMO_CATEGORY_FALLBACK.map(categoryHeroCardHTML).join('');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initLayout('categories');
+  loadCategoryHero();
+});
+</script>
+</body>
+</html>

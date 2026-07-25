@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your Wishlist — SYRA Fresh</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<meta name="description" content="Products you've saved for later at SYRA Fresh.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/pages.css">
+</head>
+<body>
+
+<div id="site-header-root"></div>
+
+<main class="container section">
+  <div class="breadcrumb"><a href="/index.html">Home</a><span>/</span><span aria-current="page">Wishlist</span></div>
+  <div class="page-header">
+    <h1>Your Wishlist</h1>
+    <p>Items you've saved for later — add them to your cart whenever you're ready.</p>
+  </div>
+  <div id="wishlist-root" class="product-grid">
+    <div class="skeleton" style="height:300px"></div>
+    <div class="skeleton" style="height:300px"></div>
+    <div class="skeleton" style="height:300px"></div>
+    <div class="skeleton" style="height:300px"></div>
+  </div>
+</main>
+
+<div id="site-footer-root"></div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/cart.js"></script>
+<script src="../js/layout.js"></script>
+<script src="../js/pages.js"></script>
+<script>
+async function loadWishlist() {
+  const root = document.getElementById('wishlist-root');
+  if (!Auth.isLoggedIn()) {
+    root.className = '';
+    root.innerHTML = `<div class="empty-state"><div class="icon">🔒</div><p>Log in to view and manage your wishlist.</p>
+      <a href="/pages/login.html?next=/pages/wishlist.html" class="btn btn-primary mt-4">Log In</a></div>`;
+    return;
+  }
+  try {
+    const data = await Api.get('/wishlist', true);
+    const products = data.products || [];
+    if (!products.length) {
+      root.className = '';
+      root.innerHTML = `<div class="empty-state"><div class="icon">💚</div><p>Your wishlist is empty. Tap the heart on any product to save it here.</p>
+        <a href="/pages/shop.html" class="btn btn-primary mt-4">Browse Products</a></div>`;
+      return;
+    }
+    root.className = 'product-grid fade-in';
+    root.innerHTML = products.map(productCardHTML).join('');
+    // These are all wishlist items, so mark every heart active.
+    root.querySelectorAll('.wishlist-btn').forEach((btn) => btn.classList.add('active'));
+    // Removing from wishlist here should refresh the grid, not just toggle the icon.
+    root.querySelectorAll('.wishlist-btn').forEach((btn, i) => {
+      const productId = products[i].id;
+      btn.setAttribute('onclick', `removeFromWishlist('${productId}', this)`);
+    });
+  } catch (e) {
+    root.className = '';
+    root.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>${e.message}</p></div>`;
+  }
+}
+
+async function removeFromWishlist(productId, btnEl) {
+  try {
+    await Api.del(`/wishlist/${productId}`, true);
+    showToast('Removed from wishlist');
+    const card = btnEl.closest('.product-card');
+    card.style.opacity = '0';
+    setTimeout(loadWishlist, 200);
+  } catch (e) { showToast(e.message); }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initLayout('products');
+  loadWishlist();
+});
+</script>
+</body>
+</html>

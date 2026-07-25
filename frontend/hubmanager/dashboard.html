@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hub Dashboard — SYRA Hub Manager</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="../admin/css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+  <aside id="admin-sidebar"></aside>
+  <div class="admin-content">
+    <header id="admin-topbar"></header>
+    <main class="admin-main">
+
+      <div class="card" style="margin-bottom: var(--space-4)">
+        <h2 id="hub-heading">Loading your hub...</h2>
+      </div>
+
+      <div class="stat-grid" id="stat-grid">
+        <div class="skeleton" style="height:90px"></div>
+        <div class="skeleton" style="height:90px"></div>
+        <div class="skeleton" style="height:90px"></div>
+        <div class="skeleton" style="height:90px"></div>
+      </div>
+
+      <div class="stat-grid" id="stat-grid-2" style="margin-top: var(--space-4)"></div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/hubmanager-api.js"></script>
+<script src="js/hubmanager.js"></script>
+<script>
+function statCardHTML(label, value, icon) {
+  return `<div class="stat-card"><div class="stat-icon">${icon}</div><div><strong>${value}</strong><span>${label}</span></div></div>`;
+}
+
+async function loadDashboard() {
+  try {
+    const data = await HubManagerApi.get('/hub-manager/dashboard');
+    document.getElementById('hub-heading').textContent = `${data.hub.name} Hub — ${data.hub.district}`;
+
+    const s = data.stats;
+    document.getElementById('stat-grid').innerHTML =
+      statCardHTML('Total Orders', s.total_orders, '🧾') +
+      statCardHTML('Pending Orders', s.pending_orders, '⏳') +
+      statCardHTML('Delivered', s.delivered_orders, '✅') +
+      statCardHTML("Today's Orders", s.today_orders, '📅');
+
+    document.getElementById('stat-grid-2').innerHTML =
+      statCardHTML('Delivery Boys', s.total_delivery_boys, '🛵') +
+      statCardHTML('Active Delivery Boys', s.active_delivery_boys, '🟢') +
+      statCardHTML('Total Revenue', `₹${s.total_revenue.toLocaleString('en-IN')}`, '💰');
+
+    document.getElementById('stat-grid').classList.add('fade-in');
+    document.getElementById('stat-grid-2').classList.add('fade-in');
+  } catch (e) {
+    hmToast(e.message);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (initHubManagerShell('dashboard')) loadDashboard();
+});
+</script>
+</body>
+</html>

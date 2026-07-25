@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Delivery Boys — SYRA Hub Manager</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="../admin/css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+  <aside id="admin-sidebar"></aside>
+  <div class="admin-content">
+    <header id="admin-topbar"></header>
+    <main class="admin-main">
+
+      <p class="form-help" style="margin-bottom: var(--space-3)">
+        Delivery boys are created via self-registration and approved/transferred by the Super Admin.
+        As Hub Manager you can adjust their delivery area and available time below.
+      </p>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Name</th><th>Mobile</th><th>Vehicle</th><th>Delivery Area</th><th>Available</th><th>Status</th><th>Rating</th><th>Actions</th></tr></thead>
+          <tbody id="boys-body"><tr><td colspan="8"><div class="skeleton" style="height:20px"></div></td></tr></tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>Edit Delivery Boy</h3>
+      <button class="modal-close" onclick="hmCloseModal('edit-modal')">✕</button>
+    </div>
+    <form id="edit-form">
+      <div class="modal-body">
+        <div class="form-group"><label>Delivery Area</label><input id="ef-area" required></div>
+        <div class="form-group">
+          <label>Available Time</label>
+          <select id="ef-time">
+            <option value="morning">Morning</option>
+            <option value="afternoon">Afternoon</option>
+            <option value="evening">Evening</option>
+            <option value="full_day">Full Day</option>
+          </select>
+        </div>
+        <div id="edit-error" class="form-error"></div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-outline" onclick="hmCloseModal('edit-modal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="js/hubmanager-api.js"></script>
+<script src="js/hubmanager.js"></script>
+<script>
+let editingBoyId = null;
+
+function boyRowHTML(b) {
+  return `
+    <tr>
+      <td><strong>${hmEscapeHTML(b.name)}</strong></td>
+      <td>${b.mobile}</td>
+      <td>${b.vehicle_type || ''} ${b.vehicle_number || ''}</td>
+      <td>${hmEscapeHTML(b.delivery_area || '')}</td>
+      <td>${(b.available_time || '').replace('_', ' ')}</td>
+      <td>${hmStatusBadgeHTML(b.status)}</td>
+      <td>⭐ ${(b.rating || 5).toFixed(1)}</td>
+      <td><button class="btn-icon" title="Edit" onclick='openEditModal(${JSON.stringify(b).replace(/'/g, "&apos;")})'>✏️</button></td>
+    </tr>`;
+}
+
+async function loadDeliveryBoys() {
+  const body = document.getElementById('boys-body');
+  try {
+    const data = await HubManagerApi.get('/hub-manager/delivery-boys');
+    const boys = data.delivery_boys || [];
+    body.innerHTML = boys.length ? boys.map(boyRowHTML).join('') : `<tr><td colspan="8"><div class="empty-state">No delivery boys assigned to your hub yet.</div></td></tr>`;
+    body.classList.add('fade-in');
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="8"><div class="empty-state">${e.message}</div></td></tr>`;
+  }
+}
+
+function openEditModal(b) {
+  editingBoyId = b.id;
+  document.getElementById('ef-area').value = b.delivery_area || '';
+  document.getElementById('ef-time').value = b.available_time || 'full_day';
+  document.getElementById('edit-error').textContent = '';
+  hmOpenModal('edit-modal');
+}
+
+document.getElementById('edit-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('edit-error');
+  try {
+    await HubManagerApi.put(`/hub-manager/delivery-boys/${editingBoyId}`, {
+      delivery_area: document.getElementById('ef-area').value.trim(),
+      available_time: document.getElementById('ef-time').value,
+    });
+    hmToast('Delivery boy updated');
+    hmCloseModal('edit-modal');
+    loadDeliveryBoys();
+  } catch (err) { errEl.textContent = err.message; }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (initHubManagerShell('delivery-boys')) loadDeliveryBoys();
+});
+</script>
+</body>
+</html>

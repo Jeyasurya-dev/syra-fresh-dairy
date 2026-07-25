@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Districts — SYRA Admin</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+  <aside id="admin-sidebar"></aside>
+  <div class="admin-content">
+    <header id="admin-topbar"></header>
+    <main class="admin-main">
+
+      <div class="admin-toolbar">
+        <div style="flex:1"><p class="form-help" style="margin:0">Phase 1 rollout covers 6 districts, each with exactly 3 hubs. Manage hubs from the Hubs page once a district exists here.</p></div>
+        <button class="btn btn-primary" onclick="openDistrictForm()">+ Add District</button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>District</th><th>State</th><th>Hubs</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="districts-body"><tr><td colspan="5"><div class="skeleton" style="height:20px"></div></td></tr></tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div class="modal-overlay" id="district-modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="district-modal-title">Add District</h3>
+      <button class="modal-close" onclick="closeModal('district-modal')">✕</button>
+    </div>
+    <form id="district-form">
+      <div class="modal-body">
+        <div class="form-group"><label>District Name</label><input id="df-name" required></div>
+        <div class="form-group"><label>State</label><input id="df-state" value="Tamil Nadu"></div>
+        <label class="form-check"><input type="checkbox" id="df-active" checked> Active</label>
+        <div id="district-error" class="form-error mt-3"></div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-outline" onclick="closeModal('district-modal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save District</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="js/admin-api.js"></script>
+<script src="js/admin.js"></script>
+<script>
+let editingDistrictId = null;
+
+function districtRowHTML(d) {
+  return `
+    <tr>
+      <td><strong>${d.name}</strong></td>
+      <td>${d.state || '—'}</td>
+      <td>${d.hub_count ?? 0} / 3</td>
+      <td>${statusBadgeHTML(d.is_active === false ? 'Inactive' : 'Active')}</td>
+      <td>
+        <div class="row-actions">
+          <button class="btn-icon" title="Edit" onclick='editDistrict(${JSON.stringify(d).replace(/'/g, "&apos;")})'>✏️</button>
+          <button class="btn-icon danger" title="Delete" onclick="deleteDistrict('${d.id}')">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+}
+
+async function loadDistricts() {
+  const body = document.getElementById('districts-body');
+  try {
+    const data = await AdminApi.get('/admin/districts');
+    const districts = data.districts || [];
+    body.innerHTML = districts.length ? districts.map(districtRowHTML).join('') : `<tr><td colspan="5"><div class="empty-state">No districts yet. Add your first one to get started.</div></td></tr>`;
+    body.classList.add('fade-in');
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="5"><div class="empty-state">${e.message}</div></td></tr>`;
+  }
+}
+
+function openDistrictForm() {
+  editingDistrictId = null;
+  document.getElementById('district-form').reset();
+  document.getElementById('df-state').value = 'Tamil Nadu';
+  document.getElementById('df-active').checked = true;
+  document.getElementById('district-modal-title').textContent = 'Add District';
+  document.getElementById('district-error').textContent = '';
+  openModal('district-modal');
+}
+
+function editDistrict(d) {
+  editingDistrictId = d.id;
+  document.getElementById('district-modal-title').textContent = 'Edit District';
+  document.getElementById('df-name').value = d.name;
+  document.getElementById('df-state').value = d.state || 'Tamil Nadu';
+  document.getElementById('df-active').checked = d.is_active !== false;
+  document.getElementById('district-error').textContent = '';
+  openModal('district-modal');
+}
+
+document.getElementById('district-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('district-error');
+  errEl.textContent = '';
+  const payload = {
+    name: document.getElementById('df-name').value.trim(),
+    state: document.getElementById('df-state').value.trim(),
+    is_active: document.getElementById('df-active').checked,
+  };
+  try {
+    if (editingDistrictId) {
+      await AdminApi.put(`/admin/districts/${editingDistrictId}`, payload);
+    } else {
+      await AdminApi.post('/admin/districts', payload);
+    }
+    adminToast('District saved');
+    closeModal('district-modal');
+    loadDistricts();
+  } catch (err) { errEl.textContent = err.message; }
+});
+
+async function deleteDistrict(id) {
+  if (!confirm('Delete this district? This only works if it has no hubs yet.')) return;
+  try {
+    await AdminApi.del(`/admin/districts/${id}`);
+    adminToast('District deleted');
+    loadDistricts();
+  } catch (e) { adminToast(e.message); }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (initAdminShell('districts')) loadDistricts();
+});
+</script>
+</body>
+</html>

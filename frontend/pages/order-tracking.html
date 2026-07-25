@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Track Order — SYRA Fresh</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<meta name="description" content="Track your SYRA Fresh order status in real time.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/pages.css">
+</head>
+<body>
+
+<div id="site-header-root"></div>
+
+<main class="container section">
+  <div class="breadcrumb"><a href="/index.html">Home</a><span>/</span><a href="/pages/orders.html">My Orders</a><span>/</span><span aria-current="page">Track Order</span></div>
+  <div id="tracking-root">
+    <div class="skeleton" style="height:500px"></div>
+  </div>
+</main>
+
+<div id="site-footer-root"></div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/cart.js"></script>
+<script src="../js/layout.js"></script>
+<script src="../js/pages.js"></script>
+<script>
+const STEPS = ['Placed', 'Confirmed', 'Packed', 'Shipped', 'Out for Delivery', 'Delivered'];
+const STEP_ICONS = { Placed: '📝', Confirmed: '✅', Packed: '📦', Shipped: '🚚', 'Out for Delivery': '🛵', Delivered: '🏠' };
+
+function timelineHTML(order) {
+  if (order.status === 'Cancelled') {
+    return `<div class="timeline-cancelled">✕ This order was cancelled${order.status_history.length ? ' on ' + formatDate(order.status_history[order.status_history.length - 1].at) : ''}.</div>`;
+  }
+  const currentIdx = STEPS.indexOf(order.status);
+  const progressPct = currentIdx <= 0 ? 0 : (currentIdx / (STEPS.length - 1)) * 90;
+  const historyMap = {};
+  order.status_history.forEach((h) => { historyMap[h.status] = h.at; });
+
+  return `
+    <div class="timeline">
+      <div class="timeline-progress" style="width:${progressPct}%"></div>
+      ${STEPS.map((s, i) => {
+        const cls = i < currentIdx ? 'done' : i === currentIdx ? 'current' : '';
+        return `<div class="timeline-step ${cls}">
+          <div class="timeline-dot">${i <= currentIdx ? STEP_ICONS[s] : i + 1}</div>
+          <span>${s}${historyMap[s] ? '<br>' + formatDate(historyMap[s], { day: 'numeric', month: 'short' }) : ''}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+function renderOrder(order) {
+  const root = document.getElementById('tracking-root');
+  const delivery = order.totals.delivery_fee || 0;
+
+  root.innerHTML = `
+    <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px">
+      <div>
+        <h1>Order #${order.order_number}</h1>
+        <p>Placed on ${formatDate(order.created_at)} · ${statusBadgeHTML(order.payment_status)}</p>
+      </div>
+      ${(order.status === 'Placed' || order.status === 'Confirmed' || order.status === 'Packed') ? `<button class="btn btn-outline" style="color:var(--color-berry); border-color:var(--color-berry)" onclick="cancelThisOrder('${order.id}')">Cancel Order</button>` : ''}
+    </div>
+
+    <div class="tracking-card">
+      <h3 style="font-family:var(--font-display); margin-bottom: var(--space-2)">Order Status: ${order.status}</h3>
+      ${timelineHTML(order)}
+    </div>
+
+    <div class="order-detail-grid">
+      <div class="tracking-card" style="margin-bottom:0">
+        <h3 style="font-family:var(--font-display); margin-bottom: var(--space-3)">Items in this order</h3>
+        ${order.items.map((it) => `
+          <div class="order-line">
+            <img src="${resolveImage(it.image)}" alt="${it.name}">
+            <div style="flex:1">
+              <p style="font-weight:600">${it.name}</p>
+              <span style="font-size:var(--fs-xs); color:var(--color-ink-soft)">${it.unit || ''} · Qty ${it.quantity}</span>
+            </div>
+            <strong>₹${(it.price * it.quantity).toFixed(2)}</strong>
+          </div>`).join('')}
+      </div>
+
+      <aside>
+        <div class="tracking-card">
+          <h3 style="font-family:var(--font-display); margin-bottom: var(--space-3)">Delivery Address</h3>
+          <p style="font-weight:600">${order.address.full_name}</p>
+          <p style="color:var(--color-ink-soft); font-size:var(--fs-sm)">${order.address.line1}${order.address.line2 ? ', ' + order.address.line2 : ''}, ${order.address.city}, ${order.address.state} - ${order.address.pincode}</p>
+          <p style="color:var(--color-ink-soft); font-size:var(--fs-sm)">📞 ${order.address.phone}</p>
+        </div>
+        <div class="tracking-card">
+          <h3 style="font-family:var(--font-display); margin-bottom: var(--space-3)">Payment Summary</h3>
+          <div class="summary-row"><span>Subtotal</span><span>₹${order.totals.subtotal}</span></div>
+          ${order.totals.discount ? `<div class="summary-row"><span>Discount</span><span>-₹${order.totals.discount}</span></div>` : ''}
+          <div class="summary-row"><span>Delivery</span><span>${delivery === 0 ? 'FREE' : '₹' + delivery}</span></div>
+          <div class="summary-row total"><span>Total</span><span>₹${order.totals.total}</span></div>
+          <p style="font-size:var(--fs-xs); color:var(--color-ink-soft); margin-top:10px">Payment method: ${order.payment_method === 'cod' ? 'Cash on Delivery' : 'Online Payment'}</p>
+        </div>
+      </aside>
+    </div>`;
+}
+
+async function loadOrder() {
+  const id = new URLSearchParams(window.location.search).get('id');
+  const root = document.getElementById('tracking-root');
+  if (!Auth.requireLogin('/pages/login.html')) return;
+  if (!id) { root.innerHTML = `<div class="empty-state"><p>No order specified.</p><a href="/pages/orders.html" class="btn btn-primary mt-4">View My Orders</a></div>`; return; }
+  try {
+    const data = await Api.get(`/orders/${id}`, true);
+    renderOrder(data.order);
+  } catch (e) {
+    root.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>${e.message}</p><a href="/pages/orders.html" class="btn btn-primary mt-4">View My Orders</a></div>`;
+  }
+}
+
+async function cancelThisOrder(id) {
+  if (!confirm('Cancel this order? This cannot be undone.')) return;
+  try {
+    await Api.post(`/orders/${id}/cancel`, {}, true);
+    showToast('Order cancelled');
+    loadOrder();
+  } catch (e) { showToast(e.message); }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initLayout('');
+  loadOrder();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="page-title">Product — SYRA Fresh</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  .pd-layout { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); }
+  .pd-gallery-main { aspect-ratio: 1/1; border-radius: var(--radius-md); overflow: hidden; background: var(--color-surface-alt); margin-bottom: var(--space-3); }
+  .pd-gallery-main img { width: 100%; height: 100%; object-fit: cover; }
+  .pd-thumbs { display: flex; gap: 10px; }
+  .pd-thumbs img { width: 70px; height: 70px; object-fit: cover; border-radius: var(--radius-sm); cursor: pointer; border: 2px solid transparent; }
+  .pd-thumbs img.active { border-color: var(--color-forest); }
+  .pd-category { color: var(--color-leaf); font-weight: 700; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .06em; }
+  .pd-title { font-family: var(--font-display); font-size: var(--fs-2xl); margin: 8px 0; }
+  .pd-price-row { display: flex; align-items: baseline; gap: 10px; margin: var(--space-3) 0; }
+  .pd-price { font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 600; }
+  .pd-mrp { text-decoration: line-through; color: var(--color-ink-soft); }
+  .pd-discount { color: var(--color-berry); font-weight: 700; font-size: var(--fs-sm); }
+  .pd-actions { display: flex; gap: 10px; margin: var(--space-5) 0; align-items: center; }
+  .review-item { border-bottom: 1px solid var(--color-border); padding: var(--space-4) 0; }
+  .rating-input { display: flex; gap: 6px; font-size: 1.6rem; cursor: pointer; margin-bottom: var(--space-3); }
+  .rating-input span { color: var(--color-border); }
+  .rating-input span.active { color: var(--color-mango-dark); }
+  @media (max-width: 800px) { .pd-layout { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div id="site-header-root"></div>
+
+<main class="container section">
+  <div id="pd-content" class="pd-layout">
+    <div><div class="skeleton" style="height:420px"></div></div>
+    <div><div class="skeleton" style="height:400px"></div></div>
+  </div>
+
+  <section style="margin-top: var(--space-7)">
+    <h2 class="section-title" style="margin-bottom: var(--space-4)">You may also like</h2>
+    <div class="product-grid" id="related-grid"></div>
+  </section>
+
+  <section style="margin-top: var(--space-7); max-width: 720px;">
+    <h2 class="section-title" style="margin-bottom: var(--space-4)">Reviews & Ratings</h2>
+    <div id="review-form-wrap"></div>
+    <div id="reviews-list"></div>
+  </section>
+</main>
+
+<div id="site-footer-root"></div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/cart.js"></script>
+<script src="../js/layout.js"></script>
+<script>
+function starString(rating) { const full = Math.round(rating); return '★'.repeat(full) + '☆'.repeat(5-full); }
+function resolveImage(p) {
+  if (!p) return 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=700&q=80';
+  if (p.startsWith('http')) return p;
+  return `${(window.SYRA_API_BASE || 'http://localhost:5000/api').replace('/api','')}${p}`;
+}
+
+const slug = new URLSearchParams(window.location.search).get('slug');
+let currentProduct = null;
+let selectedRating = 0;
+
+async function loadProduct() {
+  if (!slug) return;
+  try {
+    const data = await Api.get(`/products/${slug}`);
+    currentProduct = data.product;
+    renderProduct(data.product);
+    renderRelated(data.related_products);
+  } catch (e) {
+    document.getElementById('pd-content').innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>Product not found.</p></div>`;
+  }
+  loadReviews();
+}
+
+function renderProduct(p) {
+  document.getElementById('page-title').textContent = `${p.name} — SYRA Fresh`;
+  const images = p.images && p.images.length ? p.images : [null];
+  document.getElementById('pd-content').innerHTML = `
+    <div>
+      <div class="pd-gallery-main"><img id="main-img" src="${resolveImage(images[0])}" alt="${p.name}"></div>
+      <div class="pd-thumbs">
+        ${images.map((img, i) => `<img src="${resolveImage(img)}" class="${i===0?'active':''}" onclick="switchImage(this,'${resolveImage(img)}')">`).join('')}
+      </div>
+    </div>
+    <div>
+      <span class="pd-category">${(p.category||'').replace('-',' ')}</span>
+      <h1 class="pd-title">${p.name}</h1>
+      <div class="product-rating"><span class="stars">${starString(p.rating_avg)}</span><span>${p.rating_avg} (${p.rating_count} reviews)</span></div>
+      <div class="pd-price-row">
+        <span class="pd-price">₹${p.price}</span>
+        ${p.mrp > p.price ? `<span class="pd-mrp">₹${p.mrp}</span><span class="pd-discount">${p.discount_percent}% OFF</span>` : ''}
+      </div>
+      <p style="color:var(--color-ink-soft)">${p.description || 'Sourced fresh and delivered with care — no preservatives, no compromises.'}</p>
+      <p style="margin-top:10px; font-weight:600">Unit: ${p.unit}</p>
+      <p style="margin-top:6px; color:${p.in_stock ? 'var(--color-forest)' : 'var(--color-berry)'}; font-weight:600">
+        ${p.in_stock ? '✓ In Stock' : '✗ Out of Stock'}
+      </p>
+      <div class="pd-actions">
+        <div class="qty-stepper" style="background:var(--color-surface-alt)">
+          <button onclick="changeQty(-1)" style="color:var(--color-ink)">−</button>
+          <span id="qty-val" style="color:var(--color-ink)">1</span>
+          <button onclick="changeQty(1)" style="color:var(--color-ink)">+</button>
+        </div>
+        <button class="btn btn-primary" ${!p.in_stock?'disabled':''} onclick="addWithQty('${p.id}')">Add to Cart</button>
+        <button class="wishlist-btn" style="position:static" onclick="Wishlist.toggle('${p.id}', this)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+        </button>
+      </div>
+    </div>`;
+}
+
+function switchImage(el, src) {
+  document.getElementById('main-img').src = src;
+  document.querySelectorAll('.pd-thumbs img').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+}
+
+let qty = 1;
+function changeQty(delta) {
+  qty = Math.max(1, qty + delta);
+  document.getElementById('qty-val').textContent = qty;
+}
+function addWithQty(productId) { Cart.add(productId, qty); }
+
+function renderRelated(products) {
+  const el = document.getElementById('related-grid');
+  if (!products || !products.length) { el.innerHTML = '<p style="color:var(--color-ink-soft)">No related products yet.</p>'; return; }
+  el.innerHTML = products.map(p => `
+    <article class="product-card">
+      <div class="product-media"><a href="/pages/product-details.html?slug=${p.slug}"><img src="${resolveImage(p.images?.[0])}" alt="${p.name}"></a></div>
+      <div class="product-info">
+        <h3 class="product-name">${p.name}</h3>
+        <span class="product-unit">${p.unit}</span>
+        <div class="product-footer"><span class="price-current">₹${p.price}</span>
+          <button class="add-btn" onclick="Cart.add('${p.id}')">+</button>
+        </div>
+      </div>
+    </article>`).join('');
+}
+
+async function loadReviews() {
+  if (!currentProduct) return;
+  const listEl = document.getElementById('reviews-list');
+  const formWrap = document.getElementById('review-form-wrap');
+
+  formWrap.innerHTML = Auth.isLoggedIn() ? `
+    <div style="background:var(--color-surface-alt); padding:var(--space-4); border-radius:var(--radius-md); margin-bottom:var(--space-4)">
+      <p style="font-weight:600; margin-bottom:8px">Write a review</p>
+      <div class="rating-input" id="rating-input">
+        ${[1,2,3,4,5].map(n => `<span data-val="${n}" onclick="setRating(${n})">★</span>`).join('')}
+      </div>
+      <textarea id="review-comment" rows="3" placeholder="Share your experience..." style="width:100%; padding:0.8rem; border-radius:var(--radius-sm); border:1.5px solid var(--color-border); margin-bottom:10px"></textarea>
+      <button class="btn btn-primary btn-sm" onclick="submitReview()">Submit Review</button>
+    </div>` : `<p style="color:var(--color-ink-soft); margin-bottom:var(--space-4)"><a href="/pages/login.html" style="color:var(--color-forest); font-weight:600">Log in</a> to write a review.</p>`;
+
+  try {
+    const data = await Api.get(`/products/${currentProduct.id}/reviews`);
+    listEl.innerHTML = data.reviews.length ? data.reviews.map(r => `
+      <div class="review-item">
+        <div class="stars" style="color:var(--color-mango-dark)">${starString(r.rating)}</div>
+        <p style="margin:6px 0">${r.comment}</p>
+        <span style="font-size:var(--fs-xs); color:var(--color-ink-soft)">${r.user_name}</span>
+      </div>`).join('') : `<p style="color:var(--color-ink-soft)">No reviews yet — be the first to share your thoughts.</p>`;
+  } catch (e) { /* silent */ }
+}
+
+function setRating(n) {
+  selectedRating = n;
+  document.querySelectorAll('#rating-input span').forEach(s => s.classList.toggle('active', +s.dataset.val <= n));
+}
+
+async function submitReview() {
+  const comment = document.getElementById('review-comment').value.trim();
+  if (!selectedRating || !comment) { showToast('Add a rating and a comment first'); return; }
+  try {
+    await Api.post(`/products/${currentProduct.id}/reviews`, { rating: selectedRating, comment }, true);
+    showToast('Review submitted — thank you!');
+    loadReviews();
+  } catch (e) { showToast(e.message); }
+}
+
+document.addEventListener('DOMContentLoaded', () => { initLayout('products'); loadProduct(); });
+</script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orders — SYRA Admin</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+  <aside id="admin-sidebar"></aside>
+  <div class="admin-content">
+    <header id="admin-topbar"></header>
+    <main class="admin-main">
+
+      <div class="admin-toolbar">
+        <select id="status-filter">
+          <option value="">All Statuses</option>
+          <option>Placed</option><option>Confirmed</option><option>Packed</option>
+          <option>Shipped</option><option>Out for Delivery</option><option>Delivered</option><option>Cancelled</option>
+        </select>
+        <div style="flex:1"></div>
+        <span id="order-count" style="color:var(--color-ink-soft); font-size:var(--fs-sm)"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Payment</th><th>Status</th><th>Placed</th><th>Actions</th></tr></thead>
+          <tbody id="orders-body"><tr><td colspan="8"><div class="skeleton" style="height:20px"></div></td></tr></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination"></div>
+
+    </main>
+  </div>
+</div>
+
+<div class="modal-overlay" id="order-modal">
+  <div class="modal-box" style="max-width:640px">
+    <div class="modal-head">
+      <h3 id="order-modal-title">Order Details</h3>
+      <button class="modal-close" onclick="closeModal('order-modal')">✕</button>
+    </div>
+    <div class="modal-body" id="order-modal-body"></div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-outline" onclick="closeModal('order-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/admin-api.js"></script>
+<script src="js/admin.js"></script>
+<script>
+const STATUS_FLOW = ['Placed', 'Confirmed', 'Packed', 'Shipped', 'Out for Delivery', 'Delivered'];
+let currentPage = 1;
+
+function orderRowHTML(o) {
+  return `
+    <tr>
+      <td><strong>#${o.order_number}</strong></td>
+      <td>${o.address ? o.address.full_name : '—'}<br><span style="font-size:11px; color:var(--color-ink-soft)">${o.address ? o.address.phone : ''}</span></td>
+      <td>${o.items.length}</td>
+      <td>₹${o.totals.total}</td>
+      <td>${statusBadgeHTML(o.payment_status)}</td>
+      <td>
+        <select class="order-status-select" data-id="${o.id}" ${o.status === 'Cancelled' ? 'disabled' : ''} style="padding:6px 8px; border-radius:8px; border:1.5px solid var(--color-border); background:var(--color-surface); color:var(--color-ink); font-size:12px">
+          ${STATUS_FLOW.map((s) => `<option value="${s}" ${s === o.status ? 'selected' : ''}>${s}</option>`).join('')}
+          ${o.status === 'Cancelled' ? `<option value="Cancelled" selected>Cancelled</option>` : ''}
+        </select>
+      </td>
+      <td>${formatDate(o.created_at)}</td>
+      <td>
+        <div class="row-actions">
+          <button class="btn-icon" title="View" onclick="viewOrder('${o.id}')">👁️</button>
+          ${o.status !== 'Cancelled' && o.status !== 'Delivered' ? `<button class="btn-icon danger" title="Cancel Order" onclick="cancelOrder('${o.id}')">✕</button>` : ''}
+        </div>
+      </td>
+    </tr>`;
+}
+
+async function loadOrders(page = 1) {
+  currentPage = page;
+  const body = document.getElementById('orders-body');
+  body.innerHTML = `<tr><td colspan="8"><div class="skeleton" style="height:20px"></div></td></tr>`;
+  const params = new URLSearchParams({ page, page_size: 15 });
+  const status = document.getElementById('status-filter').value;
+  if (status) params.set('status', status);
+  try {
+    const data = await AdminApi.get(`/admin/orders?${params.toString()}`);
+    body.innerHTML = data.orders.length ? data.orders.map(orderRowHTML).join('') : `<tr><td colspan="8"><div class="empty-state">No orders found.</div></td></tr>`;
+    document.getElementById('order-count').textContent = `${data.pagination.total} order${data.pagination.total === 1 ? '' : 's'}`;
+    renderAdminPagination('pagination', data.pagination, loadOrders);
+    document.querySelectorAll('.order-status-select').forEach((sel) => {
+      sel.addEventListener('change', () => updateStatus(sel.dataset.id, sel.value));
+    });
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="8"><div class="empty-state">${e.message}</div></td></tr>`;
+  }
+}
+
+async function updateStatus(id, status) {
+  try {
+    await AdminApi.put(`/admin/orders/${id}/status`, { status });
+    adminToast(`Order marked as ${status}`);
+  } catch (e) { adminToast(e.message); loadOrders(currentPage); }
+}
+
+async function cancelOrder(id) {
+  if (!confirm('Cancel this order and restock its items?')) return;
+  try {
+    await AdminApi.post(`/admin/orders/${id}/cancel`, {});
+    adminToast('Order cancelled');
+    loadOrders(currentPage);
+  } catch (e) { adminToast(e.message); }
+}
+
+async function viewOrder(id) {
+  const body = document.getElementById('order-modal-body');
+  body.innerHTML = '<div class="skeleton" style="height:200px"></div>';
+  openModal('order-modal');
+  try {
+    const data = await AdminApi.get(`/admin/orders?page=1&page_size=100`);
+    const order = data.orders.find((o) => o.id === id);
+    if (!order) { body.innerHTML = 'Order not found in current page — try refreshing.'; return; }
+    document.getElementById('order-modal-title').textContent = `Order #${order.order_number}`;
+    body.innerHTML = `
+      <p style="margin-bottom:10px">${statusBadgeHTML(order.status)} &nbsp; ${statusBadgeHTML(order.payment_status)}</p>
+      <p style="font-size:var(--fs-sm); color:var(--color-ink-soft); margin-bottom:14px">Placed ${formatDateTime(order.created_at)}</p>
+      <div class="card" style="margin-bottom:12px">
+        <strong>Delivery Address</strong>
+        <p style="margin-top:6px">${order.address.full_name} · ${order.address.phone}</p>
+        <p style="color:var(--color-ink-soft); font-size:var(--fs-sm)">${order.address.line1}${order.address.line2 ? ', ' + order.address.line2 : ''}, ${order.address.city}, ${order.address.state} - ${order.address.pincode}</p>
+      </div>
+      <div class="card">
+        <strong>Items</strong>
+        ${order.items.map((it) => `<div style="display:flex; justify-content:space-between; padding:8px 0; border-top:1px solid var(--color-border)"><span>${it.name} × ${it.quantity}</span><span>₹${(it.price * it.quantity).toFixed(2)}</span></div>`).join('')}
+        <div style="display:flex; justify-content:space-between; padding-top:10px; margin-top:6px; border-top:2px solid var(--color-border); font-weight:700"><span>Total</span><span>₹${order.totals.total}</span></div>
+      </div>`;
+  } catch (e) { body.innerHTML = e.message; }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!initAdminShell('orders')) return;
+  loadOrders(1);
+  document.getElementById('status-filter').addEventListener('change', () => loadOrders(1));
+});
+</script>
+</body>
+</html>

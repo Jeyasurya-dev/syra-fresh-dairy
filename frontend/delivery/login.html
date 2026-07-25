@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delivery Boy Login - SYRA Fresh</title>
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/theme.css">
+    <style>
+        .auth-container {
+            max-width: 500px;
+            margin: 60px auto;
+            padding: 40px;
+            background: var(--color-surface);
+            border-radius: 12px;
+            box-shadow: var(--shadow-md);
+        }
+        
+        .auth-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .auth-header h1 {
+            font-size: 28px;
+            color: var(--color-forest);
+            margin-bottom: 10px;
+        }
+        
+        .auth-header p {
+            color: var(--color-ink-soft);
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--color-ink);
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            background: var(--color-surface-alt);
+            color: var(--color-ink);
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--color-forest);
+            box-shadow: 0 0 0 3px var(--color-leaf-light);
+        }
+        
+        .error-message {
+            color: #dc3545;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        
+        .success-message {
+            color: #28a745;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        
+        .btn-login {
+            width: 100%;
+            padding: 12px;
+            background: var(--color-forest);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            margin-bottom: 15px;
+        }
+        
+        .btn-login:hover {
+            background: var(--color-forest-dark);
+        }
+        
+        .btn-login:disabled {
+            background: var(--color-border);
+            cursor: not-allowed;
+        }
+        
+        .auth-links {
+            text-align: center;
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .auth-links a {
+            color: var(--color-forest);
+            text-decoration: none;
+            font-size: 14px;
+        }
+        
+        .auth-links a:hover {
+            text-decoration: underline;
+        }
+        
+        .role-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .role-btn {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid var(--color-border);
+            background: transparent;
+            color: var(--color-ink);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .role-btn.active {
+            border-color: var(--color-forest);
+            background: var(--color-forest);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-header">
+            <h1>🚚 SYRA Fresh</h1>
+            <p>Delivery Partner Login</p>
+        </div>
+        
+        <div id="message" style="display: none; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-size: 14px;"></div>
+        
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="email">Email or Mobile</label>
+                <input type="text" id="email" name="email" placeholder="Enter email or 10-digit mobile" required>
+                <div class="error-message" id="emailError"></div>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" placeholder="Enter password" required>
+                <div class="error-message" id="passwordError"></div>
+            </div>
+            
+            <button type="submit" class="btn-login" id="loginBtn">Login</button>
+        </form>
+        
+        <div id="generalError" class="error-message" style="display: none; text-align: center; margin-bottom: 15px;"></div>
+        
+        <div class="auth-links">
+            <a href="register.html">Register as Delivery Partner</a>
+            <a href="forgot-password.html">Forgot Password?</a>
+            <a href="../index.html">Back to Home</a>
+        </div>
+    </div>
+    
+    <script>
+        const API_URL = "http://localhost:5000/api/delivery";
+        
+        document.getElementById("loginForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById("email").value.trim();
+            const password = document.getElementById("password").value;
+            const loginBtn = document.getElementById("loginBtn");
+            const messageDiv = document.getElementById("message");
+            const generalError = document.getElementById("generalError");
+            
+            // Clear previous errors
+            document.getElementById("emailError").textContent = "";
+            document.getElementById("passwordError").textContent = "";
+            generalError.style.display = "none";
+            messageDiv.style.display = "none";
+            
+            if (!email || !password) {
+                generalError.textContent = "Email/Mobile and password are required";
+                generalError.style.display = "block";
+                return;
+            }
+            
+            loginBtn.disabled = true;
+            loginBtn.textContent = "Logging in...";
+            
+            try {
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Store token and user data
+                    localStorage.setItem("delivery_token", data.token);
+                    localStorage.setItem("delivery_user", JSON.stringify(data.delivery_boy));
+                    localStorage.setItem("role", "delivery_boy");
+                    
+                    // Redirect to dashboard
+                    window.location.href = "dashboard.html";
+                } else {
+                    generalError.textContent = data.message || "Login failed";
+                    generalError.style.display = "block";
+                }
+            } catch (error) {
+                console.error("Login error:", error);
+                generalError.textContent = "Network error. Please try again.";
+                generalError.style.display = "block";
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = "Login";
+            }
+        });
+    </script>
+</body>
+</html>

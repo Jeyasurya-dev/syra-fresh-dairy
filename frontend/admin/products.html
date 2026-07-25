@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Products — SYRA Admin</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+  <aside id="admin-sidebar"></aside>
+  <div class="admin-content">
+    <header id="admin-topbar"></header>
+    <main class="admin-main">
+
+      <div class="admin-toolbar">
+        <div class="search-wrap">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="product-search" placeholder="Search products...">
+        </div>
+        <select id="category-filter"><option value="">All Categories</option></select>
+        <div style="flex:1"></div>
+        <button class="btn btn-primary" onclick="openProductForm()">+ Add Product</button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th></th><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Rating</th><th>Actions</th></tr></thead>
+          <tbody id="products-body"><tr><td colspan="8"><div class="skeleton" style="height:20px"></div></td></tr></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination"></div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Product form modal -->
+<div class="modal-overlay" id="product-modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="product-modal-title">Add Product</h3>
+      <button class="modal-close" onclick="closeModal('product-modal')">✕</button>
+    </div>
+    <form id="product-form">
+      <div class="modal-body">
+        <div class="form-group"><label>Product Name</label><input id="pf-name" required></div>
+        <div class="form-row">
+          <div class="form-group"><label>Category</label><select id="pf-category" required></select></div>
+          <div class="form-group"><label>Subcategory</label><input id="pf-subcategory" placeholder="e.g. Paneer"></div>
+        </div>
+        <div class="form-row-3">
+          <div class="form-group"><label>Price (₹)</label><input type="number" step="0.01" id="pf-price" required></div>
+          <div class="form-group"><label>MRP (₹)</label><input type="number" step="0.01" id="pf-mrp"></div>
+          <div class="form-group"><label>Stock</label><input type="number" id="pf-stock" value="0"></div>
+        </div>
+        <div class="form-group"><label>Unit</label><input id="pf-unit" placeholder="e.g. 500 ml, 1 kg"></div>
+        <div class="form-group"><label>Description</label><textarea id="pf-description" rows="3"></textarea></div>
+        <div class="form-group"><label>Tags (comma separated)</label><input id="pf-tags" placeholder="organic, fresh, bestseller"></div>
+        <div class="form-row">
+          <label class="form-check"><input type="checkbox" id="pf-featured"> Featured Product</label>
+          <label class="form-check"><input type="checkbox" id="pf-bestseller"> Bestseller</label>
+        </div>
+        <div id="pf-image-section" style="display:none">
+          <label style="display:block; font-size:var(--fs-sm); font-weight:600; margin-bottom:6px">Product Images</label>
+          <div class="thumb-row" id="pf-image-preview"></div>
+          <input type="file" id="pf-images" accept="image/*" multiple style="margin-top:8px">
+          <p class="form-help">Upload after saving. PNG, JPG or WEBP.</p>
+        </div>
+        <div id="product-error" class="form-error"></div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-outline" onclick="closeModal('product-modal')">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="product-save-btn">Save Product</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="js/admin-api.js"></script>
+<script src="js/admin.js"></script>
+<script>
+let productsCache = [];
+let categoriesCache = [];
+let currentEditId = null;
+let currentPage = 1;
+
+async function loadCategoriesForFilters() {
+  try {
+    const data = await AdminApi.get('/categories');
+    categoriesCache = data.categories || [];
+    document.getElementById('category-filter').innerHTML = '<option value="">All Categories</option>' +
+      categoriesCache.map((c) => `<option value="${c.slug}">${c.name}</option>`).join('');
+    document.getElementById('pf-category').innerHTML = categoriesCache.map((c) => `<option value="${c.slug}">${c.name}</option>`).join('');
+  } catch (e) { /* non-fatal */ }
+}
+
+function productRowHTML(p) {
+  const img = (p.images && p.images[0]) ? resolveAdminImage(p.images[0]) : 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=100&q=80';
+  const stockBadge = p.stock <= 0
+    ? `<span class="badge-status st-cancelled">Out of stock</span>`
+    : p.stock <= 5
+      ? `<span class="badge-status st-shipped">${p.stock} left</span>`
+      : `<span>${p.stock}</span>`;
+  return `
+    <tr>
+      <td><img class="cell-img" src="${img}" alt="${p.name}"></td>
+      <td><strong>${p.name}</strong><br><span style="font-size:11px; color:var(--color-ink-soft)">${p.unit || ''}</span></td>
+      <td style="text-transform:capitalize">${(p.category || '').replace('-', ' ')}</td>
+      <td>₹${p.price}${p.mrp > p.price ? ` <span style="text-decoration:line-through; color:var(--color-ink-soft); font-size:11px">₹${p.mrp}</span>` : ''}</td>
+      <td>${stockBadge}</td>
+      <td>${statusBadgeHTML(p.is_active === false ? 'Inactive' : 'Active')}</td>
+      <td>⭐ ${p.rating_avg || 0} (${p.rating_count || 0})</td>
+      <td>
+        <div class="row-actions">
+          <button class="btn-icon" title="Edit" onclick='editProduct(${JSON.stringify(p).replace(/'/g, "&apos;")})'>✏️</button>
+          <button class="btn-icon danger" title="Delete" onclick="deleteProduct('${p.id}')">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+}
+
+async function loadProducts(page = 1) {
+  currentPage = page;
+  const body = document.getElementById('products-body');
+  body.innerHTML = `<tr><td colspan="8"><div class="skeleton" style="height:20px"></div></td></tr>`;
+  const params = new URLSearchParams({ page, page_size: 12 });
+  const cat = document.getElementById('category-filter').value;
+  if (cat) params.set('category', cat);
+  try {
+    const data = await AdminApi.get(`/admin/products?${params.toString()}`);
+    productsCache = data.products;
+    const term = document.getElementById('product-search').value.trim().toLowerCase();
+    const filtered = term ? productsCache.filter((p) => p.name.toLowerCase().includes(term)) : productsCache;
+    body.innerHTML = filtered.length ? filtered.map(productRowHTML).join('') : `<tr><td colspan="8"><div class="empty-state">No products found.</div></td></tr>`;
+    renderAdminPagination('pagination', data.pagination, loadProducts);
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="8"><div class="empty-state">${e.message}</div></td></tr>`;
+  }
+}
+
+function resetProductForm() {
+  currentEditId = null;
+  document.getElementById('product-form').reset();
+  document.getElementById('product-modal-title').textContent = 'Add Product';
+  document.getElementById('pf-image-section').style.display = 'none';
+  document.getElementById('pf-image-preview').innerHTML = '';
+  document.getElementById('product-error').textContent = '';
+}
+
+function openProductForm() { resetProductForm(); openModal('product-modal'); }
+
+function editProduct(p) {
+  resetProductForm();
+  currentEditId = p.id;
+  document.getElementById('product-modal-title').textContent = 'Edit Product';
+  document.getElementById('pf-name').value = p.name;
+  document.getElementById('pf-category').value = p.category;
+  document.getElementById('pf-subcategory').value = p.subcategory || '';
+  document.getElementById('pf-price').value = p.price;
+  document.getElementById('pf-mrp').value = p.mrp;
+  document.getElementById('pf-stock').value = p.stock;
+  document.getElementById('pf-unit').value = p.unit || '';
+  document.getElementById('pf-description').value = p.description || '';
+  document.getElementById('pf-tags').value = (p.tags || []).join(', ');
+  document.getElementById('pf-featured').checked = !!p.is_featured;
+  document.getElementById('pf-bestseller').checked = !!p.is_bestseller;
+  document.getElementById('pf-image-section').style.display = 'block';
+  document.getElementById('pf-image-preview').innerHTML = (p.images || []).map((img) => `<img src="${resolveAdminImage(img)}">`).join('') || '<span class="form-help">No images yet.</span>';
+  openModal('product-modal');
+}
+
+document.getElementById('product-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('product-error');
+  errEl.textContent = '';
+  const payload = {
+    name: document.getElementById('pf-name').value.trim(),
+    category: document.getElementById('pf-category').value,
+    subcategory: document.getElementById('pf-subcategory').value.trim(),
+    price: parseFloat(document.getElementById('pf-price').value),
+    mrp: parseFloat(document.getElementById('pf-mrp').value) || parseFloat(document.getElementById('pf-price').value),
+    stock: parseInt(document.getElementById('pf-stock').value, 10) || 0,
+    unit: document.getElementById('pf-unit').value.trim() || '1 pc',
+    description: document.getElementById('pf-description').value.trim(),
+    tags: document.getElementById('pf-tags').value.split(',').map((t) => t.trim()).filter(Boolean),
+    is_featured: document.getElementById('pf-featured').checked,
+    is_bestseller: document.getElementById('pf-bestseller').checked,
+  };
+  try {
+    let productId = currentEditId;
+    if (currentEditId) {
+      await AdminApi.put(`/admin/products/${currentEditId}`, payload);
+    } else {
+      const res = await AdminApi.post('/admin/products', payload);
+      productId = res.product.id;
+    }
+    const files = document.getElementById('pf-images').files;
+    if (files && files.length) {
+      const fd = new FormData();
+      for (const f of files) fd.append('images', f);
+      await AdminApi.upload(`/admin/products/${productId}/images`, fd);
+    }
+    adminToast('Product saved');
+    closeModal('product-modal');
+    loadProducts(currentPage);
+  } catch (err) { errEl.textContent = err.message; }
+});
+
+async function deleteProduct(id) {
+  if (!confirm('Delete this product? This cannot be undone.')) return;
+  try {
+    await AdminApi.del(`/admin/products/${id}`);
+    adminToast('Product deleted');
+    loadProducts(currentPage);
+  } catch (e) { adminToast(e.message); }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!initAdminShell('products')) return;
+  loadCategoriesForFilters().then(() => loadProducts(1));
+  document.getElementById('category-filter').addEventListener('change', () => loadProducts(1));
+  document.getElementById('product-search').addEventListener('input', debounce(() => loadProducts(currentPage), 300));
+});
+</script>
+</body>
+</html>

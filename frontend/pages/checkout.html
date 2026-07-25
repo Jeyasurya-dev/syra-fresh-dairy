@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkout — SYRA Fresh</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="../css/style.css">
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<style>
+  .checkout-layout { display: grid; grid-template-columns: 1fr 360px; gap: var(--space-5); align-items: start; }
+  .checkout-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4); margin-bottom: var(--space-4); }
+  .address-option { border: 1.5px solid var(--color-border); border-radius: var(--radius-sm); padding: var(--space-3); margin-bottom: 10px; cursor: pointer; }
+  .address-option.selected { border-color: var(--color-forest); background: var(--color-leaf-light); }
+  .payment-option { display: flex; align-items: center; gap: 10px; border: 1.5px solid var(--color-border); border-radius: var(--radius-sm); padding: var(--space-3); margin-bottom: 10px; cursor: pointer; }
+  .payment-option.selected { border-color: var(--color-forest); background: var(--color-leaf-light); }
+  .order-summary { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4); position: sticky; top: 100px; }
+  @media (max-width: 800px) { .checkout-layout { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container header-top">
+    <a href="/index.html" class="logo"><span class="dot"></span> SYRA Fresh</a>
+    <div class="header-actions" style="margin-left:auto"><a href="/pages/cart.html" class="icon-btn">← Back to Cart</a></div>
+  </div>
+</header>
+
+<main class="container section">
+  <h1 class="section-title" style="margin-bottom: var(--space-5)">Checkout</h1>
+  <div id="checkout-root" class="checkout-layout"></div>
+</main>
+
+<div id="site-footer-root"></div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/cart.js"></script>
+<script src="../js/layout.js"></script>
+<script>
+(function renderFooterOnly() {
+  const footerRoot = document.getElementById('site-footer-root');
+  if (footerRoot && typeof footerHTML === 'function') footerRoot.outerHTML = footerHTML();
+})();
+</script>
+<script>
+(function initTheme() { document.documentElement.setAttribute('data-theme', localStorage.getItem('syra_theme') || 'light'); })();
+
+let selectedAddressId = null;
+let paymentMethod = 'cod';
+let cartData = null;
+
+async function init() {
+  if (!Auth.requireLogin('/pages/login.html')) return;
+  const root = document.getElementById('checkout-root');
+  try {
+    const [cartRes, addrRes] = await Promise.all([Cart.get(), Api.get('/auth/addresses', true)]);
+    cartData = cartRes;
+    if (!cartData.items.length) {
+      root.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="icon">🛒</div><p>Your cart is empty.</p><a href="/pages/shop.html" class="btn btn-primary mt-4">Shop Now</a></div>`;
+      return;
+    }
+    renderCheckout(addrRes.addresses);
+  } catch (e) {
+    root.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><p>${e.message}</p></div>`;
+  }
+}
+
+function renderCheckout(addresses) {
+  const root = document.getElementById('checkout-root');
+  if (addresses.length && !selectedAddressId) {
+    selectedAddressId = (addresses.find(a => a.is_default) || addresses[0])._id;
+  }
+  const delivery = cartData.subtotal >= 499 ? 0 : 40;
+  const total = cartData.subtotal + delivery;
+
+  root.innerHTML = `
+    <div>
+      <div class="checkout-card">
+        <h3 style="font-family:var(--font-display); margin-bottom:var(--space-3)">Delivery Address</h3>
+        <div id="address-list">
+          ${addresses.map(a => `
+            <div class="address-option ${a._id === selectedAddressId ? 'selected' : ''}" onclick="selectAddress('${a._id}')">
+              <strong>${a.label}</strong> — ${a.full_name}, ${a.phone}<br>
+              <span style="color:var(--color-ink-soft); font-size:var(--fs-sm)">${a.line1}, ${a.line2 ? a.line2 + ', ' : ''}${a.city}, ${a.state} - ${a.pincode}</span>
+            </div>`).join('') || '<p style="color:var(--color-ink-soft)">No saved addresses yet.</p>'}
+        </div>
+        <button class="btn btn-outline btn-sm mt-4" onclick="document.getElementById('new-address-form').style.display='block'">+ Add New Address</button>
+        <div id="new-address-form" style="display:none; margin-top: var(--space-4)">
+          <div class="form-row">
+            <div class="form-group"><label>Full Name</label><input id="na-name"></div>
+            <div class="form-group"><label>Phone</label><input id="na-phone"></div>
+          </div>
+          <div class="form-group"><label>Address Line 1</label><input id="na-line1"></div>
+          <div class="form-row">
+            <div class="form-group"><label>City</label><input id="na-city"></div>
+            <div class="form-group"><label>State</label><input id="na-state"></div>
+          </div>
+          <div class="form-group"><label>Pincode</label><input id="na-pincode"></div>
+          <button class="btn btn-primary btn-sm" onclick="saveAddress()">Save Address</button>
+        </div>
+      </div>
+
+      <div class="checkout-card">
+        <h3 style="font-family:var(--font-display); margin-bottom:var(--space-3)">Payment Method</h3>
+        <div class="payment-option selected" onclick="selectPayment('cod', this)"><span>💵</span><div><strong>Cash on Delivery</strong><br><span style="font-size:var(--fs-xs); color:var(--color-ink-soft)">Pay when your order arrives</span></div></div>
+        <div class="payment-option" onclick="selectPayment('razorpay', this)"><span>💳</span><div><strong>Pay Online</strong><br><span style="font-size:var(--fs-xs); color:var(--color-ink-soft)">UPI, Cards, Net Banking, Wallets via Razorpay</span></div></div>
+      </div>
+    </div>
+
+    <aside class="order-summary">
+      <h3 style="font-family:var(--font-display); margin-bottom:var(--space-3)">Order Summary</h3>
+      ${cartData.items.map(l => `<div class="summary-row"><span>${l.product.name} × ${l.quantity}</span><span>₹${l.line_total}</span></div>`).join('')}
+      <div class="summary-row"><span>Subtotal</span><span>₹${cartData.subtotal}</span></div>
+      <div class="summary-row"><span>Delivery</span><span>${delivery === 0 ? 'FREE' : '₹' + delivery}</span></div>
+      <div class="summary-row total"><span>Total</span><span>₹${total}</span></div>
+      <button class="btn btn-primary btn-block mt-4" onclick="placeOrder()" id="place-order-btn">Place Order</button>
+    </aside>`;
+}
+
+function selectAddress(id) { selectedAddressId = id; renderCheckout([]); document.querySelectorAll('.address-option').forEach(el => {}); init(); }
+function selectPayment(method, el) {
+  paymentMethod = method;
+  document.querySelectorAll('.payment-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+async function saveAddress() {
+  const payload = {
+    label: 'Home', full_name: document.getElementById('na-name').value.trim(),
+    phone: document.getElementById('na-phone').value.trim(), line1: document.getElementById('na-line1').value.trim(),
+    city: document.getElementById('na-city').value.trim(), state: document.getElementById('na-state').value.trim(),
+    pincode: document.getElementById('na-pincode').value.trim(), is_default: true,
+  };
+  try {
+    const res = await Api.post('/auth/addresses', payload, true);
+    selectedAddressId = res.address._id;
+    showToast('Address saved');
+    init();
+  } catch (e) { showToast(e.message); }
+}
+
+async function placeOrder() {
+  if (!selectedAddressId) { showToast('Please select or add a delivery address'); return; }
+  const btn = document.getElementById('place-order-btn');
+  btn.disabled = true; btn.textContent = 'Placing order...';
+
+  const addrRes = await Api.get('/auth/addresses', true);
+  const address = addrRes.addresses.find(a => a._id === selectedAddressId);
+
+  try {
+    const res = await Api.post('/orders/checkout', { address, payment_method: paymentMethod }, true);
+
+    if (!res.requires_payment) {
+      window.location.href = `/pages/orders.html?placed=${res.order.order_number}`;
+      return;
+    }
+
+    // Razorpay flow
+    const rzp = new Razorpay({
+      key: res.razorpay.key_id,
+      amount: res.razorpay.amount,
+      currency: res.razorpay.currency,
+      order_id: res.razorpay.id,
+      name: 'SYRA Fresh',
+      description: 'Order Payment',
+      theme: { color: '#1F4D3A' },
+      handler: async function (response) {
+        try {
+          await Api.post('/orders/verify-payment', {
+            order_id: res.order_id,
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+          }, true);
+          window.location.href = '/pages/orders.html?placed=1';
+        } catch (e) { showToast('Payment verification failed: ' + e.message); }
+      },
+      modal: { ondismiss: function () { btn.disabled = false; btn.textContent = 'Place Order'; } },
+    });
+    rzp.open();
+  } catch (e) {
+    showToast(e.message);
+    btn.disabled = false; btn.textContent = 'Place Order';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

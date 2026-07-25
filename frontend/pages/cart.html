@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your Cart — SYRA Fresh</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  .cart-layout { display: grid; grid-template-columns: 1fr 340px; gap: var(--space-5); align-items: start; }
+  .cart-line { display: grid; grid-template-columns: 80px 1fr auto auto; gap: var(--space-4); align-items: center;
+    background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); margin-bottom: var(--space-3); }
+  .cart-line img { width: 80px; height: 80px; object-fit: cover; border-radius: var(--radius-sm); }
+  .cart-summary { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4); position: sticky; top: 100px; }
+  .summary-row { display: flex; justify-content: space-between; font-size: var(--fs-sm); margin-bottom: 10px; color: var(--color-ink-soft); }
+  .summary-row.total { font-weight: 700; color: var(--color-ink); font-size: var(--fs-md); border-top: 1px solid var(--color-border); padding-top: 10px; margin-top: 10px; }
+  .remove-btn { color: var(--color-berry); font-size: var(--fs-xs); font-weight: 600; }
+  @media (max-width: 800px) { .cart-layout { grid-template-columns: 1fr; } .cart-line { grid-template-columns: 60px 1fr; } }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container header-top">
+    <a href="/index.html" class="logo"><span class="dot"></span> SYRA Fresh</a>
+    <div class="header-actions" style="margin-left:auto"><a href="/pages/shop.html" class="icon-btn">← Continue Shopping</a></div>
+  </div>
+</header>
+
+<main class="container section">
+  <h1 class="section-title" style="margin-bottom: var(--space-5)">Your Cart</h1>
+  <div id="cart-root" class="cart-layout"></div>
+</main>
+
+<div id="site-footer-root"></div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/cart.js"></script>
+<script src="../js/layout.js"></script>
+<script>
+(function renderFooterOnly() {
+  const footerRoot = document.getElementById('site-footer-root');
+  if (footerRoot && typeof footerHTML === 'function') footerRoot.outerHTML = footerHTML();
+})();
+</script>
+<script>
+(function initTheme() { document.documentElement.setAttribute('data-theme', localStorage.getItem('syra_theme') || 'light'); })();
+function resolveImage(p) {
+  if (!p) return 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=200&q=80';
+  if (p.startsWith('http')) return p;
+  return `${(window.SYRA_API_BASE || 'http://localhost:5000/api').replace('/api','')}${p}`;
+}
+
+async function renderCart() {
+  const root = document.getElementById('cart-root');
+  if (!Auth.isLoggedIn()) {
+    root.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="icon">🔒</div><p>Please log in to view your cart.</p>
+      <a href="/pages/login.html" class="btn btn-primary mt-4">Log In</a></div>`;
+    return;
+  }
+  try {
+    const cart = await Cart.get();
+    Cart.syncBadge(cart.item_count);
+    if (!cart.items.length) {
+      root.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="icon">🛒</div><p>Your cart is empty.</p>
+        <a href="/pages/shop.html" class="btn btn-primary mt-4">Start Shopping</a></div>`;
+      return;
+    }
+    const linesHTML = cart.items.map(line => `
+      <div class="cart-line" data-id="${line.product.id}">
+        <img src="${resolveImage(line.product.images?.[0])}" alt="${line.product.name}">
+        <div>
+          <p style="font-weight:600">${line.product.name}</p>
+          <span style="font-size:var(--fs-xs); color:var(--color-ink-soft)">${line.product.unit} · ₹${line.product.price} each</span><br>
+          <button class="remove-btn" onclick="removeLine('${line.product.id}')">Remove</button>
+        </div>
+        <div class="qty-stepper" style="background:var(--color-surface-alt)">
+          <button onclick="updateLine('${line.product.id}', ${line.quantity - 1})" style="color:var(--color-ink)">−</button>
+          <span style="color:var(--color-ink)">${line.quantity}</span>
+          <button onclick="updateLine('${line.product.id}', ${line.quantity + 1})" style="color:var(--color-ink)">+</button>
+        </div>
+        <strong>₹${line.line_total}</strong>
+      </div>`).join('');
+
+    root.innerHTML = `
+      <div>${linesHTML}</div>
+      <aside class="cart-summary">
+        <h3 style="font-family:var(--font-display); margin-bottom: var(--space-3)">Order Summary</h3>
+        <div class="summary-row"><span>Subtotal</span><span>₹${cart.subtotal}</span></div>
+        <div class="summary-row"><span>Delivery</span><span>${cart.subtotal >= 499 ? 'FREE' : '₹40'}</span></div>
+        <div class="summary-row total"><span>Estimated Total</span><span>₹${cart.subtotal >= 499 ? cart.subtotal : cart.subtotal + 40}</span></div>
+        <a href="/pages/checkout.html" class="btn btn-primary btn-block mt-4">Proceed to Checkout</a>
+        <p style="font-size:var(--fs-xs); color:var(--color-ink-soft); margin-top:10px; text-align:center">Free delivery on orders above ₹499</p>
+      </aside>`;
+  } catch (e) {
+    root.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="icon">⚠️</div><p>${e.message}</p></div>`;
+  }
+}
+
+async function updateLine(productId, quantity) {
+  if (quantity <= 0) return removeLine(productId);
+  await Cart.updateQuantity(productId, quantity);
+  renderCart();
+}
+async function removeLine(productId) {
+  await Cart.remove(productId);
+  renderCart();
+}
+
+document.addEventListener('DOMContentLoaded', renderCart);
+</script>
+</body>
+</html>

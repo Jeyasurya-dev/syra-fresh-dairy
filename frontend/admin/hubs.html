@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hubs — SYRA Admin</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+  <aside id="admin-sidebar"></aside>
+  <div class="admin-content">
+    <header id="admin-topbar"></header>
+    <main class="admin-main">
+
+      <div class="admin-toolbar">
+        <input type="text" id="hub-search" placeholder="🔍 Search hubs..." oninput="renderHubs()" style="max-width:220px">
+        <select id="district-filter" onchange="loadHubs()" style="max-width:220px">
+          <option value="">All Districts</option>
+        </select>
+        <div style="flex:1"></div>
+        <button class="btn btn-primary" onclick="openHubForm()">+ Add Hub</button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Hub</th><th>District</th><th>Hub Manager</th><th>Delivery Boys</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="hubs-body"><tr><td colspan="6"><div class="skeleton" style="height:20px"></div></td></tr></tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div class="modal-overlay" id="hub-modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="hub-modal-title">Add Hub</h3>
+      <button class="modal-close" onclick="closeModal('hub-modal')">✕</button>
+    </div>
+    <form id="hub-form">
+      <div class="modal-body">
+        <div class="form-group">
+          <label>District</label>
+          <select id="hf-district" required></select>
+        </div>
+        <div class="form-group"><label>Hub Name</label><input id="hf-name" required placeholder="e.g. Sankarankovil"></div>
+        <label class="form-check"><input type="checkbox" id="hf-active" checked> Active</label>
+        <div id="hub-error" class="form-error mt-3"></div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-outline" onclick="closeModal('hub-modal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Hub</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="js/admin-api.js"></script>
+<script src="js/admin.js"></script>
+<script>
+let districtsCache = [];
+let editingHubId = null;
+
+function hubRowHTML(h) {
+  return `
+    <tr>
+      <td><strong>${h.name}</strong></td>
+      <td>${h.district_name || '—'}</td>
+      <td>${h.hub_manager ? escapeHTML(h.hub_manager.name) : '<span style="opacity:.6">Unassigned</span>'}</td>
+      <td>${h.delivery_boy_count ?? 0}</td>
+      <td>${statusBadgeHTML(h.is_active === false ? 'Inactive' : 'Active')}</td>
+      <td>
+        <div class="row-actions">
+          <button class="btn-icon" title="Edit" onclick='editHub(${JSON.stringify(h).replace(/'/g, "&apos;")})'>✏️</button>
+          <button class="btn-icon danger" title="Delete" onclick="deleteHub('${h.id}')">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+}
+
+async function loadDistrictsForFilter() {
+  try {
+    const data = await AdminApi.get('/admin/districts');
+    districtsCache = data.districts || [];
+    const filter = document.getElementById('district-filter');
+    const select = document.getElementById('hf-district');
+    const options = districtsCache.map((d) => `<option value="${d.id}">${d.name}</option>`).join('');
+    filter.innerHTML = `<option value="">All Districts</option>${options}`;
+    select.innerHTML = options;
+  } catch (e) { adminToast(e.message); }
+}
+
+let hubsCache2 = [];
+
+async function loadHubs() {
+  const body = document.getElementById('hubs-body');
+  const districtId = document.getElementById('district-filter').value;
+  try {
+    const data = await AdminApi.get(`/admin/hubs${districtId ? `?district_id=${districtId}` : ''}`);
+    hubsCache2 = data.hubs || [];
+    renderHubs();
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="6"><div class="empty-state">${e.message}</div></td></tr>`;
+  }
+}
+
+function renderHubs() {
+  const body = document.getElementById('hubs-body');
+  const q = (document.getElementById('hub-search').value || '').trim().toLowerCase();
+  const filtered = q
+    ? hubsCache2.filter((h) => [h.name, h.district_name].some((f) => (f || '').toLowerCase().includes(q)))
+    : hubsCache2;
+  body.innerHTML = filtered.length
+    ? filtered.map(hubRowHTML).join('')
+    : `<tr><td colspan="6"><div class="empty-state">${q ? 'No hubs match your search.' : 'No hubs yet. Add a district first, then add hubs to it.'}</div></td></tr>`;
+  body.classList.add('fade-in');
+}
+
+function openHubForm() {
+  if (!districtsCache.length) { adminToast('Add a district first'); return; }
+  editingHubId = null;
+  document.getElementById('hub-form').reset();
+  document.getElementById('hf-active').checked = true;
+  document.getElementById('hub-modal-title').textContent = 'Add Hub';
+  document.getElementById('hub-error').textContent = '';
+  openModal('hub-modal');
+}
+
+function editHub(h) {
+  editingHubId = h.id;
+  document.getElementById('hub-modal-title').textContent = 'Edit Hub';
+  document.getElementById('hf-district').value = h.district_id;
+  document.getElementById('hf-name').value = h.name;
+  document.getElementById('hf-active').checked = h.is_active !== false;
+  document.getElementById('hub-error').textContent = '';
+  openModal('hub-modal');
+}
+
+document.getElementById('hub-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('hub-error');
+  errEl.textContent = '';
+  const payload = {
+    name: document.getElementById('hf-name').value.trim(),
+    district_id: document.getElementById('hf-district').value,
+    is_active: document.getElementById('hf-active').checked,
+  };
+  try {
+    if (editingHubId) {
+      await AdminApi.put(`/admin/hubs/${editingHubId}`, payload);
+    } else {
+      await AdminApi.post('/admin/hubs', payload);
+    }
+    adminToast('Hub saved');
+    closeModal('hub-modal');
+    loadHubs();
+  } catch (err) { errEl.textContent = err.message; }
+});
+
+async function deleteHub(id) {
+  if (!confirm('Delete this hub? This only works if it has no Hub Manager or delivery boys assigned.')) return;
+  try {
+    await AdminApi.del(`/admin/hubs/${id}`);
+    adminToast('Hub deleted');
+    loadHubs();
+  } catch (e) { adminToast(e.message); }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  if (initAdminShell('hubs')) {
+    await loadDistrictsForFilter();
+    loadHubs();
+  }
+});
+</script>
+</body>
+</html>
